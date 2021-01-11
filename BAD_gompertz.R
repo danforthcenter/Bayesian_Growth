@@ -54,3 +54,6 @@ fit1 <- brm(bf(y ~ a*exp(-b*exp(-c*time)),
             cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4),
             control = list(adapt_delta = 0.999,max_treedepth = 20),
             inits = function(){list(b_a=rgamma(2,1),b_b=rgamma(2,1),b_c=rgamma(2,1))})
+
+h <- hypothesis(fit1, "a_treatmenta/a_treatmentb > 1")
+plot(h)
