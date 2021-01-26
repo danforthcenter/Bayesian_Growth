@@ -140,6 +140,14 @@ get_prior(bf(x ~ arma(p = 2, q = 1)), data = LakeHuron)
 fit <- brm(x ~ arma(p = 2, q = 1), data = LakeHuron)
 summary(fit)
 
+#*************************************************************************************************
+# Trace plots of bayesian priors 
+#*************************************************************************************************
+samples <- data.frame(brms::posterior_samples(fit1, add_chain=T))
+library(ggplot2)
+# b_sigma_time x treatmenta plot 
+ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmenta)) + 
+  geom_line()
 
 #*************************************************************************************************
 # Real Data
