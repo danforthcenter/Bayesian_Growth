@@ -149,6 +149,31 @@ library(ggplot2)
 ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmenta)) + 
   geom_line()
 
+model_vars <- names(samples)
+
+library(ggplot2)
+prior_plot1 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_Intercept)) + 
+  geom_line()
+prior_plot2 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi1_treatmenta)) + 
+  geom_line()
+prior_plot3 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi1_treatmentb)) + 
+  geom_line()
+prior_plot4 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi2_treatmenta)) + 
+  geom_line()
+prior_plot5 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi2_treatmentb)) + 
+  geom_line()
+prior_plot6 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi3_treatmenta)) + 
+  geom_line()
+prior_plot7 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi3_treatmentb)) + 
+  geom_line()
+prior_plot8 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmenta)) + 
+  geom_line()
+prior_plot9 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmentb)) + 
+  geom_line()
+prior_plot10 <- ggplot(samples, aes(color=chain, x = iter, y = nu)) + 
+  geom_line()
+plot_grid(prior_plot1, prior_plot2, prior_plot3, prior_plot4, prior_plot5, prior_plot6, 
+          prior_plot7, prior_plot8, prior_plot9, prior_plot10)
 #*************************************************************************************************
 # Real Data
 #*************************************************************************************************
