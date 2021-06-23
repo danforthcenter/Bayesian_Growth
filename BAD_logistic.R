@@ -67,29 +67,24 @@ ggsave("Fig1/bayes_simulated_f1b.png",f1b,width = 7.04,height=4.04,dpi=300)
 
 prior1 <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
           prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
-          prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") + 
-          prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmentb") + 
-          prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmenta") + 
+          prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
+          prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmentb") +
+          prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmenta") +
           prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmentb") +
           prior(student_t(3,0,5), dpar="sigma") +
           prior(gamma(2,0.1), class="nu")
 
-fit1 <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)), 
-               sigma~time:treatment, 
-               phi1 + phi2 + phi3 ~ 0+treatment, 
+fit1 <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
+               sigma~time:treatment,
+               phi1 + phi2 + phi3 ~ 0+treatment,
                autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
-            family = student, prior = prior1, data = df, iter = 10000, 
+            family = student, prior = prior1, data = df, iter = 10000,
             cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4),
             control = list(adapt_delta = 0.999,max_treedepth = 20),
             inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
 
 plot(conditional_effects(fit1),points=T)
-plot(posterior_interval(fit1))
 
-
-hist(rlnorm(2000,log(130), .25),breaks = 50)
-hist(rlnorm(2000,log(12), .25),breaks = 50)
-hist(rlnorm(2000,log(3), .25),breaks = 50)
 
 #*************************************************************************************************
 # Bayesian updating using posteriors as priors
@@ -103,9 +98,11 @@ apply(prior1,MARGIN = 1, function(i) paste0("normal(",post[gsub("__","",paste0(i
 
 new_priors$prior <- c(as.character(unlist(apply(post[stringr::str_detect(rownames(post),"b_"),],MARGIN = 1,function(i) paste0("normal(",i[1],",",i[5],")")))),paste0("student_t(3,",post["sigma",1],",",post["sigma",5]))
 new_fit <- update(fit1,newdata = df[df$time %in% 15:17,],prior=new_priors, cores=4)
-#**********************************************
-#*add step to find each statistical distribution of the priors so it's more robust
-#**********************************************
+
+
+#*************************************************************************************************
+# (NON-FUNCTIONAL) add step to find each statistical distribution of the priors so it's more robust
+#*************************************************************************************************
 uupap <- function(fit,initial_priors,newdata){
   post <- data.frame(posterior_summary(fit),stringsAsFactors = F)
   post$n_sd <- post$Est.Error*1.96
@@ -133,47 +130,49 @@ hypothesis(fit4, "phi1_treatmenta/phi1_treatmentb > 1")
 hypothesis(fit5, "phi1_treatmenta/phi1_treatmentb > 1")
 hypothesis(fit6, "phi1_treatmenta/phi1_treatmentb > 1")
 
-
 data("LakeHuron")
 LakeHuron <- as.data.frame(LakeHuron)
 get_prior(bf(x ~ arma(p = 2, q = 1)), data = LakeHuron)
 fit <- brm(x ~ arma(p = 2, q = 1), data = LakeHuron)
 summary(fit)
 
+
 #*************************************************************************************************
-# Trace plots of bayesian priors 
+# Trace plots of bayesian priors
 #*************************************************************************************************
 samples <- data.frame(brms::posterior_samples(fit1, add_chain=T))
 library(ggplot2)
-# b_sigma_time x treatmenta plot 
-ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmenta)) + 
+# b_sigma_time x treatmenta plot
+ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmenta)) +
   geom_line()
 
 model_vars <- names(samples)
 
 library(ggplot2)
-prior_plot1 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_Intercept)) + 
+prior_plot1 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_Intercept)) +
   geom_line()
-prior_plot2 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi1_treatmenta)) + 
+prior_plot2 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi1_treatmenta)) +
   geom_line()
-prior_plot3 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi1_treatmentb)) + 
+prior_plot3 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi1_treatmentb)) +
   geom_line()
-prior_plot4 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi2_treatmenta)) + 
+prior_plot4 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi2_treatmenta)) +
   geom_line()
-prior_plot5 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi2_treatmentb)) + 
+prior_plot5 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi2_treatmentb)) +
   geom_line()
-prior_plot6 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi3_treatmenta)) + 
+prior_plot6 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi3_treatmenta)) +
   geom_line()
-prior_plot7 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi3_treatmentb)) + 
+prior_plot7 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi3_treatmentb)) +
   geom_line()
-prior_plot8 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmenta)) + 
+prior_plot8 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmenta)) +
   geom_line()
-prior_plot9 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmentb)) + 
+prior_plot9 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmentb)) +
   geom_line()
-prior_plot10 <- ggplot(samples, aes(color=chain, x = iter, y = nu)) + 
+prior_plot10 <- ggplot(samples, aes(color=chain, x = iter, y = nu)) +
   geom_line()
-plot_grid(prior_plot1, prior_plot2, prior_plot3, prior_plot4, prior_plot5, prior_plot6, 
+plot_grid(prior_plot1, prior_plot2, prior_plot3, prior_plot4, prior_plot5, prior_plot6,
           prior_plot7, prior_plot8, prior_plot9, prior_plot10)
+
+
 #*************************************************************************************************
 # Real Data
 #*************************************************************************************************
@@ -198,18 +197,18 @@ ggplot(df,aes(DAP,area_c))+
 prior1 <- 
   prior(lognormal(log(125), .25),nlpar = "phi1",coef="MicrobesControl") +
   prior(lognormal(log(125), .25),nlpar = "phi1",coef="MicrobesSynComA") +
-  prior(lognormal(log(15), .25), nlpar = "phi2",coef="MicrobesControl") + 
-  prior(lognormal(log(15), .25), nlpar = "phi2",coef="MicrobesSynComA") + 
-  prior(lognormal(log(5), .25), nlpar = "phi3",coef="MicrobesControl") + 
-  prior(lognormal(log(5), .25), nlpar = "phi3",coef="MicrobesSynComA") + 
+  prior(lognormal(log(15), .25), nlpar = "phi2",coef="MicrobesControl") +
+  prior(lognormal(log(15), .25), nlpar = "phi2",coef="MicrobesSynComA") +
+  prior(lognormal(log(5), .25), nlpar = "phi3",coef="MicrobesControl") +
+  prior(lognormal(log(5), .25), nlpar = "phi3",coef="MicrobesSynComA") +
   prior(student_t(3,0,5), dpar="sigma") +
   prior(gamma(2,0.1), class="nu")
 
-fit1 <- brm(bf(area_c ~ phi1/(1+exp((phi2-DAP)/phi3)), 
-               sigma~DAP:Microbes, 
-               phi1 + phi2 + phi3 ~ 0+Microbes, 
+fit1 <- brm(bf(area_c ~ phi1/(1+exp((phi2-DAP)/phi3)),
+               sigma~DAP:Microbes,
+               phi1 + phi2 + phi3 ~ 0+Microbes,
                autocor = ~arma(~DAP|Barcodes:Microbes,1,1),nl = TRUE),
-            family = student, prior = prior1, data = df, iter = 10000, 
+            family = student, prior = prior1, data = df, iter = 10000,
             cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4),
             control = list(adapt_delta = 0.999,max_treedepth = 20),
             inits = function(){list(b_phi1=rgamma(3,1),b_phi2=rgamma(3,1),b_phi3=rgamma(3,1))})
@@ -235,15 +234,6 @@ hypothesis(fit3, "phi1_MicrobesSynComB/phi1_MicrobesControl < 1")
 hypothesis(fit4, "phi1_MicrobesSynComB/phi1_MicrobesControl < 1")
 hypothesis(fit5, "phi1_MicrobesSynComB/phi1_MicrobesControl < 1")
 hypothesis(fit6, "phi1_MicrobesSynComB/phi1_MicrobesControl < 1")
-
-
-
-
-
-hist(rbeta(5000,91,11),breaks = 100)
-median(rbeta(5000,91,11))
-
-9/10
 
 
 
