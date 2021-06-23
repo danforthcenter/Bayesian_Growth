@@ -130,47 +130,24 @@ hypothesis(fit4, "phi1_treatmenta/phi1_treatmentb > 1")
 hypothesis(fit5, "phi1_treatmenta/phi1_treatmentb > 1")
 hypothesis(fit6, "phi1_treatmenta/phi1_treatmentb > 1")
 
-data("LakeHuron")
-LakeHuron <- as.data.frame(LakeHuron)
-get_prior(bf(x ~ arma(p = 2, q = 1)), data = LakeHuron)
-fit <- brm(x ~ arma(p = 2, q = 1), data = LakeHuron)
-summary(fit)
-
 
 #*************************************************************************************************
-# Trace plots of bayesian priors
+# Trace plots of bayesian posterior estimations
 #*************************************************************************************************
 samples <- data.frame(brms::posterior_samples(fit1, add_chain=T))
-library(ggplot2)
-# b_sigma_time x treatmenta plot
-ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmenta)) +
-  geom_line()
-
 model_vars <- names(samples)
 
-library(ggplot2)
-prior_plot1 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_Intercept)) +
-  geom_line()
-prior_plot2 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi1_treatmenta)) +
-  geom_line()
-prior_plot3 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi1_treatmentb)) +
-  geom_line()
-prior_plot4 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi2_treatmenta)) +
-  geom_line()
-prior_plot5 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi2_treatmentb)) +
-  geom_line()
-prior_plot6 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi3_treatmenta)) +
-  geom_line()
-prior_plot7 <- ggplot(samples, aes(color=chain, x = iter, y = b_phi3_treatmentb)) +
-  geom_line()
-prior_plot8 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmenta)) +
-  geom_line()
-prior_plot9 <- ggplot(samples, aes(color=chain, x = iter, y = b_sigma_time.treatmentb)) +
-  geom_line()
-prior_plot10 <- ggplot(samples, aes(color=chain, x = iter, y = nu)) +
-  geom_line()
-plot_grid(prior_plot1, prior_plot2, prior_plot3, prior_plot4, prior_plot5, prior_plot6,
-          prior_plot7, prior_plot8, prior_plot9, prior_plot10)
+list_of_plots <- lapply(model_vars[-((length(model_vars)-2):length(model_vars))],function(i){
+  ggplot(samples, aes_string(color="chain", x = "iter", y = i)) +
+    geom_line(alpha=0.5)+
+    ggtitle(i)+
+    ylab("Estimate")+
+    theme_light()+
+    theme(axis.ticks.length=unit(0.2,"cm"))+
+    theme(axis.title= element_text(size = 18))+
+    theme(axis.text = element_text(size = 14))
+})
+gridExtra::grid.arrange(grobs=list_of_plots)
 
 
 #*************************************************************************************************
