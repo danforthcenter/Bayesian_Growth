@@ -24,6 +24,12 @@ growthSim <- function(x,phi1,phi2,phi3){
 # write.csv(df,"simulated_data_v1.csv",row.names = F,quote = F)
 df <- read.csv("simulated_data_v1.csv",stringsAsFactors = F)
 
+var_df <- aggregate(data=df,y~treatment+time,FUN=function(i)var(i))
+head(var_df)
+ggplot(data=var_df,aes(time,y))+
+  geom_line(aes(color=treatment))
+
+
 f1a <- ggplot(df,aes(time,y,group=interaction(treatment,sample)))+
   geom_line(aes(color=treatment))+
   ylab("Area (cm, simulated)")+
@@ -75,13 +81,14 @@ prior1 <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
           prior(gamma(2,0.1), class="nu")
 
 fit1 <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
-               sigma~time:treatment,
+               sigma~s(time,by=treatment),
                phi1 + phi2 + phi3 ~ 0+treatment,
                autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
             family = student, prior = prior1, data = df, iter = 10000,
             cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4),
             control = list(adapt_delta = 0.999,max_treedepth = 20),
             inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
+
 post <- data.frame(posterior_summary(fit1),stringsAsFactors = F)
 
 f1c <- f1b +
@@ -94,20 +101,19 @@ f1c <- f1b +
 f1c
 
 
-probs <- c(48.5,51.5,40, 60, 25, 75, 10, 90, 2.5, 97.5,1,99)/100
-avg_pal <- viridis::plasma(n=5)
+#*************************************************************************************************
+# Bayesian credible intervals 
+#*************************************************************************************************
+probs <- seq(from=99, to=1, by=-2)/100
+avg_pal <- viridis::turbo(n=length(probs))
 df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))
 df_fit <- predict(fit1,df_test,probs=probs)
 test <- cbind(df_test,df_fit)
 
 p <- ggplot(test,aes(time,Estimate))+
   facet_wrap(~treatment)+
-  #geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20")+
-  geom_ribbon(aes(ymin=Q2.5,ymax=Q97.5),fill=avg_pal[1],alpha=0.5)+
-  geom_ribbon(aes(ymin=Q10,ymax=Q90),fill=avg_pal[2],alpha=0.5)+
-  geom_ribbon(aes(ymin=Q25,ymax=Q75),fill=avg_pal[3],alpha=0.5)+
-  geom_ribbon(aes(ymin=Q40,ymax=Q60),fill=avg_pal[4],alpha=0.5)+
-  geom_ribbon(aes(ymin=Q48.5,ymax=Q51.5),fill=avg_pal[5],alpha=0.5)+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20")+
   ylab("Area (cm, simulated)")+
   xlab("Time")+
   #scale_y_continuous(limits = c(0,300))+
@@ -120,6 +126,7 @@ p <- ggplot(test,aes(time,Estimate))+
   theme(axis.text = element_text(size = 14))+
   theme(legend.position='top')
 p
+
 
 #*************************************************************************************************
 # Bayesian updating using posteriors as priors
