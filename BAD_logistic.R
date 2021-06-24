@@ -56,12 +56,12 @@ ggsave("Fig1/bayes_simulated_f1a.png",f1a,width = 5.04,height=4.04,dpi=300)
 
 f1b <- f1a + 
   facet_wrap(~treatment)+
-  geom_vline(data=df[df$treatment == "a",],aes(xintercept=13),color="gray40",linetype="dashed")+
-  geom_vline(data=df[df$treatment == "b",],aes(xintercept=13),color="gray40",linetype="dashed")+
-  geom_hline(data=df[df$treatment == "a",],aes(yintercept=200),color="gray40",linetype="dashed")+
-  geom_hline(data=df[df$treatment == "b",],aes(yintercept=160),color="gray40",linetype="dashed")+
-  geom_abline(data=df[df$treatment == "a",],aes(intercept=(0.5*200)-(200*(1/3)*(1/4))*13,slope=200*(1/3)*(1/4)),color="gray40",linetype="dashed")+
-  geom_abline(data=df[df$treatment == "b",],aes(intercept=(0.5*160)-(160*(1/3.5)*(1/4))*13,slope=160*(1/3.5)*(1/4)),color="gray40",linetype="dashed")
+  geom_vline(data=df[df$treatment == "a",],aes(xintercept=13),color="gray20")+
+  geom_vline(data=df[df$treatment == "b",],aes(xintercept=13),color="gray20")+
+  geom_hline(data=df[df$treatment == "a",],aes(yintercept=200),color="gray20")+
+  geom_hline(data=df[df$treatment == "b",],aes(yintercept=160),color="gray20")+
+  geom_abline(data=df[df$treatment == "a",],aes(intercept=(0.5*200)-(200*(1/3)*(1/4))*13,slope=200*(1/3)*(1/4)),color="gray20")+
+  geom_abline(data=df[df$treatment == "b",],aes(intercept=(0.5*160)-(160*(1/3.5)*(1/4))*13,slope=160*(1/3.5)*(1/4)),color="gray20")
 f1b
 ggsave("Fig1/bayes_simulated_f1b.png",f1b,width = 7.04,height=4.04,dpi=300)
 
@@ -82,9 +82,44 @@ fit1 <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
             cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4),
             control = list(adapt_delta = 0.999,max_treedepth = 20),
             inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
+post <- data.frame(posterior_summary(fit1),stringsAsFactors = F)
 
-plot(conditional_effects(fit1),points=T)
+f1c <- f1b +
+  geom_vline(data=df[df$treatment == "a",],aes(xintercept=post["b_phi2_treatmenta","Estimate"]),color="gray40",linetype="dashed")+
+  geom_vline(data=df[df$treatment == "b",],aes(xintercept=post["b_phi2_treatmentb","Estimate"]),color="gray40",linetype="dashed")+
+  geom_hline(data=df[df$treatment == "a",],aes(yintercept=post["b_phi1_treatmenta","Estimate"]),color="gray40",linetype="dashed")+
+  geom_hline(data=df[df$treatment == "b",],aes(yintercept=post["b_phi1_treatmentb","Estimate"]),color="gray40",linetype="dashed")+
+  geom_abline(data=df[df$treatment == "a",],aes(intercept=(0.5*post["b_phi1_treatmenta","Estimate"])-(post["b_phi1_treatmenta","Estimate"]*(1/post["b_phi3_treatmenta","Estimate"])*(1/4))*post["b_phi2_treatmenta","Estimate"],slope=post["b_phi1_treatmenta","Estimate"]*(1/post["b_phi3_treatmenta","Estimate"])*(1/4)),color="gray40",linetype="dashed")+
+  geom_abline(data=df[df$treatment == "b",],aes(intercept=(0.5*post["b_phi1_treatmentb","Estimate"])-(post["b_phi1_treatmentb","Estimate"]*(1/post["b_phi3_treatmentb","Estimate"])*(1/4))*post["b_phi2_treatmentb","Estimate"],slope=post["b_phi1_treatmentb","Estimate"]*(1/post["b_phi3_treatmentb","Estimate"])*(1/4)),color="gray40",linetype="dashed")
+f1c
 
+
+probs <- c(48.5,51.5,40, 60, 25, 75, 10, 90, 2.5, 97.5,1,99)/100
+avg_pal <- viridis::plasma(n=5)
+df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))
+df_fit <- predict(fit1,df_test,probs=probs)
+test <- cbind(df_test,df_fit)
+
+p <- ggplot(test,aes(time,Estimate))+
+  facet_wrap(~treatment)+
+  #geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20")+
+  geom_ribbon(aes(ymin=Q2.5,ymax=Q97.5),fill=avg_pal[1],alpha=0.5)+
+  geom_ribbon(aes(ymin=Q10,ymax=Q90),fill=avg_pal[2],alpha=0.5)+
+  geom_ribbon(aes(ymin=Q25,ymax=Q75),fill=avg_pal[3],alpha=0.5)+
+  geom_ribbon(aes(ymin=Q40,ymax=Q60),fill=avg_pal[4],alpha=0.5)+
+  geom_ribbon(aes(ymin=Q48.5,ymax=Q51.5),fill=avg_pal[5],alpha=0.5)+
+  ylab("Area (cm, simulated)")+
+  xlab("Time")+
+  #scale_y_continuous(limits = c(0,300))+
+  theme_light()+
+  theme(axis.ticks.length=unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="gray50",color="gray20"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+p
 
 #*************************************************************************************************
 # Bayesian updating using posteriors as priors
