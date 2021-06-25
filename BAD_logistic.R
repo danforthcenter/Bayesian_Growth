@@ -4,7 +4,7 @@ library(stringr)
 library(patchwork)
 library(cowplot)
 
-setwd("~/Danforth/Datasci/Bayesian_adaptive")
+setwd('/home/jberry/Danforth/Datasci/Bayesian_Growth/')
 
 #*************************************************************************************************
 # Simulated Data
@@ -56,16 +56,29 @@ ggsave("Fig1/bayes_simulated_f1a.png",f1a,width = 5.04,height=4.04,dpi=300)
 
 f1b <- f1a + 
   facet_wrap(~treatment)+
-  geom_vline(data=df[df$treatment == "a",],aes(xintercept=13),color="gray40",linetype="dashed")+
-  geom_vline(data=df[df$treatment == "b",],aes(xintercept=13),color="gray40",linetype="dashed")+
-  geom_hline(data=df[df$treatment == "a",],aes(yintercept=200),color="gray40",linetype="dashed")+
-  geom_hline(data=df[df$treatment == "b",],aes(yintercept=160),color="gray40",linetype="dashed")+
-  geom_abline(data=df[df$treatment == "a",],aes(intercept=(0.5*200)-(200*(1/3)*(1/4))*13,slope=200*(1/3)*(1/4)),color="gray40",linetype="dashed")+
-  geom_abline(data=df[df$treatment == "b",],aes(intercept=(0.5*160)-(160*(1/3.5)*(1/4))*13,slope=160*(1/3.5)*(1/4)),color="gray40",linetype="dashed")
+  geom_vline(data=df[df$treatment == "a",],aes(xintercept=13),color="gray20")+
+  geom_vline(data=df[df$treatment == "b",],aes(xintercept=13),color="gray20")+
+  geom_hline(data=df[df$treatment == "a",],aes(yintercept=200),color="gray20")+
+  geom_hline(data=df[df$treatment == "b",],aes(yintercept=160),color="gray20")+
+  geom_abline(data=df[df$treatment == "a",],aes(intercept=(0.5*200)-(200*(1/3)*(1/4))*13,slope=200*(1/3)*(1/4)),color="gray20")+
+  geom_abline(data=df[df$treatment == "b",],aes(intercept=(0.5*160)-(160*(1/3.5)*(1/4))*13,slope=160*(1/3.5)*(1/4)),color="gray20")
 f1b
 ggsave("Fig1/bayes_simulated_f1b.png",f1b,width = 7.04,height=4.04,dpi=300)
 
-prior1 <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
+
+#*************************************************************************************************
+# Viewing/modeling heteroscedasticity
+#*************************************************************************************************
+var_df <- aggregate(data=df,y~treatment+time,FUN=function(i)var(i))
+aspline <- data.frame(spline(var_df$y[var_df$treatment == "a"]),"treatment"="a")
+bspline <- data.frame(spline(var_df$y[var_df$treatment == "b"]),"treatment"="b")
+
+ggplot(data=var_df,aes(time,y))+
+  geom_line(aes(color=treatment))+
+  geom_line(data=bspline,aes(x,y))
+
+#***** Spline Var
+prior_spline <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
           prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
           prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
           prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmentb") +
@@ -74,17 +87,107 @@ prior1 <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
           prior(student_t(3,0,5), dpar="sigma") +
           prior(gamma(2,0.1), class="nu")
 
-fit1 <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
-               sigma~time:treatment,
+fit_spline <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
+               sigma~s(time,by=treatment),
                phi1 + phi2 + phi3 ~ 0+treatment,
                autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
-            family = student, prior = prior1, data = df, iter = 10000,
+            family = student, prior = prior_spline, data = df, iter = 10000,
             cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4),
             control = list(adapt_delta = 0.999,max_treedepth = 20),
             inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
 
-plot(conditional_effects(fit1),points=T)
+post_spline <- data.frame(posterior_summary(fit_spline),stringsAsFactors = F)
+save(fit_spline,prior_spline,post_spline,file ="logistic_model_splineVar.rdata")
 
+#***** Linear Var
+prior_linear <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
+          prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
+          prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
+          prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmentb") +
+          prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmenta") +
+          prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmentb") +
+          prior(student_t(3,0,5), dpar="sigma") +
+          prior(gamma(2,0.1), class="nu")
+
+fit_linear <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
+               sigma~time+time:treatment,
+               phi1 + phi2 + phi3 ~ 0+treatment,
+               autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
+            family = student, prior = prior_linear, data = df, iter = 10000,
+            cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4),
+            control = list(adapt_delta = 0.999,max_treedepth = 20),
+            inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
+
+post_linear <- data.frame(posterior_summary(fit_linear),stringsAsFactors = F)
+save(fit_linear,prior_linear,post_linear,file ="logistic_model_linearVar.rdata")
+
+#***** No Var
+prior_none <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
+          prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
+          prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
+          prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmentb") +
+          prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmenta") +
+          prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmentb") +
+          prior(gamma(2,0.1), class="nu")
+
+fit_none <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
+               phi1 + phi2 + phi3 ~ 0+treatment,
+               autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
+            family = student, prior = prior_none, data = df, iter = 10000,
+            cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4),
+            control = list(adapt_delta = 0.999,max_treedepth = 20),
+            inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
+
+post_none <- data.frame(posterior_summary(fit_none),stringsAsFactors = F)
+save(fit_none,prior_none,post_none,file ="logistic_model_noneVar.rdata")
+
+
+#*************************************************************************************************
+# Bayesian credible intervals
+#*************************************************************************************************
+probs <- seq(from=99, to=1, by=-2)/100
+avg_pal <- viridis::turbo(n=length(probs))
+df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))
+df_pred <- predict(fit1,df_test,probs=probs)
+test <- cbind(df_test,df_pred)
+
+p <- ggplot(test,aes(time,Estimate))+
+  facet_wrap(~treatment)+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
+ # geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20")+
+  ylab("Area (cm, simulated)")+
+  xlab("Time")+
+  #scale_y_continuous(limits = c(0,300))+
+  theme_light()+
+  theme(axis.ticks.length=unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="gray50",color="gray20"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+p
+ggsave("Fig1/bayes_logistic_credibleIntervals.png",p,width = 7.04,height=4.04,dpi=300)
+
+
+
+f1c <- f1b +
+  geom_vline(data=df[df$treatment == "a",],aes(xintercept=post["b_phi2_treatmenta","Estimate"]),color="gray40",linetype="dashed")+
+  geom_vline(data=df[df$treatment == "b",],aes(xintercept=post["b_phi2_treatmentb","Estimate"]),color="gray40",linetype="dashed")+
+  geom_hline(data=df[df$treatment == "a",],aes(yintercept=post["b_phi1_treatmenta","Estimate"]),color="gray40",linetype="dashed")+
+  geom_hline(data=df[df$treatment == "b",],aes(yintercept=post["b_phi1_treatmentb","Estimate"]),color="gray40",linetype="dashed")+
+  geom_abline(data=df[df$treatment == "a",],aes(intercept=(0.5*post["b_phi1_treatmenta","Estimate"])-(post["b_phi1_treatmenta","Estimate"]*(1/post["b_phi3_treatmenta","Estimate"])*(1/4))*post["b_phi2_treatmenta","Estimate"],slope=post["b_phi1_treatmenta","Estimate"]*(1/post["b_phi3_treatmenta","Estimate"])*(1/4)),color="gray40",linetype="dashed")+
+  geom_abline(data=df[df$treatment == "b",],aes(intercept=(0.5*post["b_phi1_treatmentb","Estimate"])-(post["b_phi1_treatmentb","Estimate"]*(1/post["b_phi3_treatmentb","Estimate"])*(1/4))*post["b_phi2_treatmentb","Estimate"],slope=post["b_phi1_treatmentb","Estimate"]*(1/post["b_phi3_treatmentb","Estimate"])*(1/4)),color="gray40",linetype="dashed")
+f1c
+
+#*************************************************************************************************
+# Pull out specific day to do NHST
+#*************************************************************************************************
+posterior_smooths(fit1)
+df_fit <- predict(fit1,newdata=df,scale="response")
+test <- cbind(df,df_fit)
+head(test)
+plot(test$y,test$y-test$Estimate)
 
 #*************************************************************************************************
 # Bayesian updating using posteriors as priors
