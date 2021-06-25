@@ -4,7 +4,7 @@ library(stringr)
 library(patchwork)
 library(cowplot)
 
-setwd("~/Danforth/Datasci/Bayesian_adaptive")
+setwd('/home/jberry/Danforth/Datasci/Bayesian_Growth/')
 
 #*************************************************************************************************
 # Simulated Data
@@ -65,27 +65,6 @@ f1b <- f1a +
 f1b
 ggsave("Fig1/bayes_simulated_f1b.png",f1b,width = 7.04,height=4.04,dpi=300)
 
-prior_spline <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
-          prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
-          prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
-          prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmentb") +
-          prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmenta") +
-          prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmentb") +
-          prior(student_t(3,0,5), dpar="sigma") +
-          prior(gamma(2,0.1), class="nu")
-
-fit_spline <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
-               sigma~s(time,by=treatment),
-               phi1 + phi2 + phi3 ~ 0+treatment,
-               autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
-            family = student, prior = prior1, data = df, iter = 10000,
-            cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4),
-            control = list(adapt_delta = 0.999,max_treedepth = 20),
-            inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
-save(fit_spline,prior_spline,file ="logistic_model_splineVar.rdata")
-
-post <- data.frame(posterior_summary(fit1),stringsAsFactors = F)
-
 
 #*************************************************************************************************
 # Viewing/modeling heteroscedasticity
@@ -98,7 +77,7 @@ ggplot(data=var_df,aes(time,y))+
   geom_line(aes(color=treatment))+
   geom_line(data=bspline,aes(x,y))
 
-# Spline Var
+#***** Spline Var
 prior_spline <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
           prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
           prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
@@ -120,8 +99,7 @@ fit_spline <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
 post_spline <- data.frame(posterior_summary(fit_spline),stringsAsFactors = F)
 save(fit_spline,prior_spline,post_spline,file ="logistic_model_splineVar.rdata")
 
-
-# Linear Var
+#***** Linear Var
 prior_linear <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
           prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
           prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
@@ -143,8 +121,7 @@ fit_linear <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
 post_linear <- data.frame(posterior_summary(fit_linear),stringsAsFactors = F)
 save(fit_linear,prior_linear,post_linear,file ="logistic_model_linearVar.rdata")
 
-
-# No Var
+#***** No Var
 prior_none <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
           prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
           prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
@@ -163,16 +140,6 @@ fit_none <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
 
 post_none <- data.frame(posterior_summary(fit_none),stringsAsFactors = F)
 save(fit_none,prior_none,post_none,file ="logistic_model_noneVar.rdata")
-
-
-f1c <- f1b +
-  geom_vline(data=df[df$treatment == "a",],aes(xintercept=post["b_phi2_treatmenta","Estimate"]),color="gray40",linetype="dashed")+
-  geom_vline(data=df[df$treatment == "b",],aes(xintercept=post["b_phi2_treatmentb","Estimate"]),color="gray40",linetype="dashed")+
-  geom_hline(data=df[df$treatment == "a",],aes(yintercept=post["b_phi1_treatmenta","Estimate"]),color="gray40",linetype="dashed")+
-  geom_hline(data=df[df$treatment == "b",],aes(yintercept=post["b_phi1_treatmentb","Estimate"]),color="gray40",linetype="dashed")+
-  geom_abline(data=df[df$treatment == "a",],aes(intercept=(0.5*post["b_phi1_treatmenta","Estimate"])-(post["b_phi1_treatmenta","Estimate"]*(1/post["b_phi3_treatmenta","Estimate"])*(1/4))*post["b_phi2_treatmenta","Estimate"],slope=post["b_phi1_treatmenta","Estimate"]*(1/post["b_phi3_treatmenta","Estimate"])*(1/4)),color="gray40",linetype="dashed")+
-  geom_abline(data=df[df$treatment == "b",],aes(intercept=(0.5*post["b_phi1_treatmentb","Estimate"])-(post["b_phi1_treatmentb","Estimate"]*(1/post["b_phi3_treatmentb","Estimate"])*(1/4))*post["b_phi2_treatmentb","Estimate"],slope=post["b_phi1_treatmentb","Estimate"]*(1/post["b_phi3_treatmentb","Estimate"])*(1/4)),color="gray40",linetype="dashed")
-f1c
 
 
 #*************************************************************************************************
@@ -202,6 +169,16 @@ p <- ggplot(test,aes(time,Estimate))+
 p
 ggsave("Fig1/bayes_logistic_credibleIntervals.png",p,width = 7.04,height=4.04,dpi=300)
 
+
+
+f1c <- f1b +
+  geom_vline(data=df[df$treatment == "a",],aes(xintercept=post["b_phi2_treatmenta","Estimate"]),color="gray40",linetype="dashed")+
+  geom_vline(data=df[df$treatment == "b",],aes(xintercept=post["b_phi2_treatmentb","Estimate"]),color="gray40",linetype="dashed")+
+  geom_hline(data=df[df$treatment == "a",],aes(yintercept=post["b_phi1_treatmenta","Estimate"]),color="gray40",linetype="dashed")+
+  geom_hline(data=df[df$treatment == "b",],aes(yintercept=post["b_phi1_treatmentb","Estimate"]),color="gray40",linetype="dashed")+
+  geom_abline(data=df[df$treatment == "a",],aes(intercept=(0.5*post["b_phi1_treatmenta","Estimate"])-(post["b_phi1_treatmenta","Estimate"]*(1/post["b_phi3_treatmenta","Estimate"])*(1/4))*post["b_phi2_treatmenta","Estimate"],slope=post["b_phi1_treatmenta","Estimate"]*(1/post["b_phi3_treatmenta","Estimate"])*(1/4)),color="gray40",linetype="dashed")+
+  geom_abline(data=df[df$treatment == "b",],aes(intercept=(0.5*post["b_phi1_treatmentb","Estimate"])-(post["b_phi1_treatmentb","Estimate"]*(1/post["b_phi3_treatmentb","Estimate"])*(1/4))*post["b_phi2_treatmentb","Estimate"],slope=post["b_phi1_treatmentb","Estimate"]*(1/post["b_phi3_treatmentb","Estimate"])*(1/4)),color="gray40",linetype="dashed")
+f1c
 
 #*************************************************************************************************
 # Pull out specific day to do NHST
