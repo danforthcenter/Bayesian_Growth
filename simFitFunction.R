@@ -12,30 +12,36 @@ growthSim <- function(x,phi1,phi2,phi3){ # make function to do a bunch of growth
   return(phi1_r/(1+exp((phi2_r-x)/phi3_r)))
 }
 
-# define function that makes (however many) iterations of df, using provided parameters.
+#function to make Data (only to make the next part easier to read)
+makeData<-function(x.=x,nSamples.=nSamples, phi1_1.=phi1_a, phi2_1.=phi2_a, phi3_1.=phi3_a, phi1_2.=phi1_b, phi2_2.=phi2_b, phi3_2.=phi3_b){
+  df<-rbind(
+    do.call(rbind,
+            lapply(1:nSamples.,
+                   function(i) data.frame("sample"=paste0("sample_",i),
+                                          "treatment"="a",
+                                          "time"=x.,
+                                          "y"=growthSim(x., phi1_1., phi2_1., phi3_1.),
+                                          stringsAsFactors = F))),
+    do.call(rbind,
+            lapply(1:nSamples.,
+                   function(i) data.frame("sample"=paste0("sample_",i),
+                                          "treatment"="b",
+                                          "time"=x.,
+                                          "y"=growthSim(x.,phi1_2., phi2_2., phi3_2.),
+                                          stringsAsFactors = F)))
+  )
+  return(df)
+}
 
-modelSims<-function(iterations = 10, xTime=25, nSamples = 20, phi1_1=200, phi2_1=13, phi3_1=3, phi1_2=160, phi2_2=13, phi3_2=3.5){
+
+# define function that makes (however many) iterations of df, using provided parameters.
+modelSims<-function(iterations = 10, xTime=25, nSamples = 20, phi1_a=200, phi2_a=13, phi3_a=3, phi1_b=160, phi2_b=13, phi3_b=3.5){
   #loop through iterations making data, model, and gathering results
   for (i in 1:iterations){
     cat("\nStarting Iteration ", i, "/",iterations,"\n")
-  iteration_row<-data.frame(iteration = i, elpd_loo = NA,elpd_loo_se=NA, p_loo=NA, p_loo_se=NA, looIC=NA,looIC_se=NA) #store iteration number
+  iteration_row<-data.frame(iteration = i, elpd_loo = NA,elpd_loo_se=NA, p_loo=NA, p_loo_se=NA, loo_IC=NA,loo_IC_se=NA) #store iteration number
   x<-1:xTime
-  dat <- rbind(
-    do.call(rbind,
-            lapply(1:nSamples,
-                   function(i) data.frame("sample"=paste0("sample_",i),
-                                          "treatment"="a",
-                                          "time"=x,
-                                          "y"=growthSim(x, phi1_1, phi2_1, phi3_1),
-                                          stringsAsFactors = F))),
-    do.call(rbind,
-            lapply(1:nSamples,
-                   function(i) data.frame("sample"=paste0("sample_",i),
-                                          "treatment"="b",
-                                          "time"=x,
-                                          "y"=growthSim(x,phi1_2, phi2_2, phi3_2),
-                                          stringsAsFactors = F)))
-  )
+  dat <- makeData(phi1_1.=phi1_a, phi2_1.=phi2_a, phi3_1.=phi3_a, phi1_2.=phi1_b, phi2_2.=phi2_b, phi3_2.=phi3_b) #make the data
         # model the data
   prior_none <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
     prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
@@ -59,8 +65,8 @@ modelSims<-function(iterations = 10, xTime=25, nSamples = 20, phi1_1=200, phi2_1
   iteration_row$elpd_loo_se[1]<-fit_none$criteria$loo$estimates[1,2]
   iteration_row$p_loo[1]<-fit_none$criteria$loo$estimates[2,1]
   iteration_row$p_loo_se[1]<-fit_none$criteria$loo$estimates[2,2]
-  iteration_row$looIC[1]<-fit_none$criteria$loo$estimates[3,1]
-  iteration_row$looIC_se[1]<-fit_none$criteria$loo$estimates[3,2]
+  iteration_row$loo_IC[1]<-fit_none$criteria$loo$estimates[3,1]
+  iteration_row$loo_IC_se[1]<-fit_none$criteria$loo$estimates[3,2]
   fitSum<-summary(fit_none)
   fixed<-fitSum$fixed
   fixed <- cbind(rownames(fixed), data.frame(fixed, row.names=NULL))
@@ -78,7 +84,7 @@ modelSims<-function(iterations = 10, xTime=25, nSamples = 20, phi1_1=200, phi2_1
 }
 
 start<-Sys.time()
-metrics_df<-modelSims()
+metrics_df<-modelSims(iterations = 10)
 Sys.time()-start
 
 summ<-summarize(metrics_df, across(.cols=everything(), .fns = list(mean, sd), .names = "{.col}_{.fn}"))
@@ -91,15 +97,13 @@ r2<- select(summ, contains("_sd"))
 colnames(r2)<-str_remove_all(colnames(r2), "_sd")
 summ2<-rbind(r1, r2)
 row.names(summ2)<-c("mean", "sd")
+summ2<-summ2%>%select(contains("looIC"), contains("phi"), contains("Estimate"))
 View(summ2)
 
 
 
 
-
-
-
-
+#would it be valuable to store the values we originally input and display them for reference/show the actual differences?
 
 
 
