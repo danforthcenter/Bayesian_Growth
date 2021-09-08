@@ -5,8 +5,6 @@ library(patchwork)
 library(cowplot)
 library(tidyverse) #sorry, I'll use it sparingly
 
-str(fit_none)
-
 growthSim <- function(x,phi1,phi2,phi3){ # make function to do a bunch of growthSims and check how well they 
   phi1_r <- phi1+rnorm(1,mean = 0,sd=25) #can be modeled/how well their phi params can be recovered.
   phi2_r <- phi2+rnorm(1,mean=0,sd=1)
@@ -18,6 +16,7 @@ growthSim <- function(x,phi1,phi2,phi3){ # make function to do a bunch of growth
 
 modelSims<-function(iterations = 10, xTime=25, nSamples = 20, phi1_1=200, phi2_1=13, phi3_1=3, phi1_2=160, phi2_2=13, phi3_2=3.5){
   #metrics_df<-data.frame(iteration = rep(0, iterations)) #specify output columns
+  startTime<-Sys.time()
   for (i in 1:iterations){
     cat("\nStarting Iteration ", i)
   iteration_row<-data.frame(iteration = i, elpd_loo = NA,elpd_loo_se=NA, p_loo=NA, p_loo_se=NA, looIC=NA,looIC_se=NA) #store iteration number
@@ -80,12 +79,12 @@ modelSims<-function(iterations = 10, xTime=25, nSamples = 20, phi1_1=200, phi2_1
   }
   
   }#close iterations for loop
-  summaryMetrics<-metrics_df%>%summarize(across(.cols=everything(), .fns = mean, .names = "mean_{.col}"))
-  return(summaryMetrics)
+  return(metrics_df)
 }
 
 start<-Sys.time()
-modelSims(iterations = 10, xTime=25, nSamples = 20)
+metrics_df<-modelSims()
+metrics_df%>%summarize(across(.cols=everything(), .fns = list(mean, sd), .names = "{.fn}_{.col}"))
 Sys.time()-start
 
 
