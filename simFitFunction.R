@@ -33,7 +33,15 @@ makeData<-function(x.=x,nSamples.=nSamples, phi1_1.=phi1_a, phi2_1.=phi2_a, phi3
   return(df)
 }
 
-
+# iterations = 10
+# xTime=25
+# nSamples = 20
+# phi1_a=200
+# phi2_a=13
+# phi3_a=3
+# phi1_b=160
+# phi2_b=13
+# phi3_b=3.5
 # define function that makes (however many) iterations of df, using provided parameters.
 modelSims<-function(iterations = 10, xTime=25, nSamples = 20, phi1_a=200, phi2_a=13, phi3_a=3, phi1_b=160, phi2_b=13, phi3_b=3.5){
   #loop through iterations making data, model, and gathering results
@@ -41,7 +49,7 @@ modelSims<-function(iterations = 10, xTime=25, nSamples = 20, phi1_a=200, phi2_a
     cat("\nStarting Iteration ", i, "/",iterations,"\n")
   iteration_row<-data.frame(iteration = i, elpd_loo = NA,elpd_loo_se=NA, p_loo=NA, p_loo_se=NA, loo_IC=NA,loo_IC_se=NA) #store iteration number
   x<-1:xTime
-  dat <- makeData(phi1_1.=phi1_a, phi2_1.=phi2_a, phi3_1.=phi3_a, phi1_2.=phi1_b, phi2_2.=phi2_b, phi3_2.=phi3_b) #make the data
+  dat <- makeData(x. = x, nSamples.=nSamples, phi1_1.=phi1_a, phi2_1.=phi2_a, phi3_1.=phi3_a, phi1_2.=phi1_b, phi2_2.=phi2_b, phi3_2.=phi3_b) #make the data
         # model the data
   prior_none <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
     prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
@@ -54,7 +62,7 @@ modelSims<-function(iterations = 10, xTime=25, nSamples = 20, phi1_a=200, phi2_a
   fit_none <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
                      phi1 + phi2 + phi3 ~ 0+treatment, # if we don't model sigma then homoscedasticity is assumed
                      autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
-                  family = student, prior = prior_none, data = df, iter = 1000,
+                  family = student, prior = prior_none, data = dat, iter = 1000,
                   cores = 2, chains = 2, backend = "cmdstanr", #threads = threading(4),
                   control = list(adapt_delta = 0.999,max_treedepth = 20),
                   inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
@@ -84,7 +92,8 @@ modelSims<-function(iterations = 10, xTime=25, nSamples = 20, phi1_a=200, phi2_a
 }
 
 start<-Sys.time()
-metrics_df<-modelSims(iterations = 10)
+set.seed(123)
+metrics_df<-modelSims(iterations = 100, xTime=25, nSamples = 20, phi1_a=200, phi2_a=13, phi3_a=3, phi1_b=160, phi2_b=13, phi3_b=3.5)
 Sys.time()-start
 
 summ<-summarize(metrics_df, across(.cols=everything(), .fns = list(mean, sd), .names = "{.col}_{.fn}"))
