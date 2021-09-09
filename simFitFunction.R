@@ -199,9 +199,12 @@ modelSimsOutput[6]
 # run different sigmas to compare
 
 modelSimsOutput_None<-modelSims(iterations = 5, sigma="none", xTime=25, nSamples = 20, phi1_a=200, phi2_a=13, phi3_a=3, phi1_b=160, phi2_b=13, phi3_b=3.5)
+Sys.sleep(10)
 modelSimsOutput_linear<-modelSims(iterations = 5, sigma="linear", xTime=25, nSamples = 20, phi1_a=200, phi2_a=13, phi3_a=3, phi1_b=160, phi2_b=13, phi3_b=3.5)
+Sys.sleep(10)
 modelSimsOutput_Spline<-modelSims(iterations = 5, sigma="spline", xTime=25, nSamples = 20, phi1_a=200, phi2_a=13, phi3_a=3, phi1_b=160, phi2_b=13, phi3_b=3.5)
 
+save(modelSimsOutput_None,modelSimsOutput_linear,modelSimsOutput_Spline,file ="modelSimsOutputs.rdata")
 
 
 
@@ -217,6 +220,7 @@ m1<-modelSimsOutput
 m2<-modelSimsOutput
 
 compareSimModels<-function(...){
+argnames <- sys.call()
 arguments<-list(...)
 i =1
 for (dat in arguments){
@@ -227,12 +231,12 @@ for (dat in arguments){
     loo_IC_SE<-mean(df$loo_IC_se)
     # needs to get an identifier from the model, preferably the argument name as a string,
     # but for some reason that is eluding me right now
-    name<-i
+    name<-unlist(lapply(argnames[-1], as.character))[i]
     output_df<-data.frame(name=name, loo_IC_Mean= loo_IC_Mean, loo_IC_SE=loo_IC_SE)
   } else {  #bind data to existing rows
     loo_IC_Mean<-mean(df$loo_IC)
     loo_IC_SE<-mean(df$loo_IC_se)
-    name<-i
+    name<-unlist(lapply(argnames[-1], as.character))[i]
     output_df_new_row<-data.frame(name=name, loo_IC_Mean= loo_IC_Mean, loo_IC_SE=loo_IC_SE)
     output_df<-rbind(output_df, output_df_new_row)
   }
@@ -247,6 +251,16 @@ head(test)
 
 
 
+test_names2 <- function(...) {
+  argnames <- sys.call()
+  arguments<-list(...)
+  i=1
+  for (dat in arguments){
+  name <- unlist(lapply(argnames[-1], as.character))[i]
+  print(name)
+  i=i+1
+  }
+}
 
 
 
