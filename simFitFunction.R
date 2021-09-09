@@ -3,6 +3,7 @@ library(ggplot2)
 library(stringr)
 library(patchwork)
 library(cowplot)
+library(plyr)
 library(tidyverse) #sorry, I'll use it sparingly
 
 growthSim <- function(x,phi1,phi2,phi3){
@@ -42,6 +43,16 @@ modelSims<-function(iterations = 10, sigma = "none", xTime=25, nSamples = 20, ph
   bfText<-paste0("bf(y ~ phi1/(1+exp((phi2-time)/phi3)),", 
          sigma, 
          "phi1 + phi2 + phi3 ~ 0+treatment,autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE)")
+  prior_list <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
+    prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
+    prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
+    prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmentb") +
+    prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmenta") +
+    prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmentb") +
+    prior(gamma(2,0.1), class="nu")
+  if(sigma!="none"){
+    prior_list<-prior_list+
+      prior(student_t(3,0,5), dpar="sigma")}
   bayesFormula<-eval(parse(text = bfText))
   for (i in 1:iterations){ #loop through iterations making data, model, and gathering results
     cat("\nStarting Iteration ", i, "/",iterations,"\n") # print progress
@@ -49,16 +60,8 @@ modelSims<-function(iterations = 10, sigma = "none", xTime=25, nSamples = 20, ph
   x<-1:xTime
   dat <- makeData(x. = x, nSamples.=nSamples, phi1_1.=phi1_a, phi2_1.=phi2_a, phi3_1.=phi3_a, phi1_2.=phi1_b, phi2_2.=phi2_b, phi3_2.=phi3_b) #make the data
         # model the data
-  prior_none <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
-    prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
-    prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
-    prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmentb") +
-    prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmenta") +
-    prior(lognormal(log(3), .25), nlpar = "phi3",coef="treatmentb") +
-    prior(gamma(2,0.1), class="nu")
-  
   fit_none <- brm(bayesFormula,
-                  family = student, prior = prior_none, data = dat, iter = 1000,
+                  family = student, prior = prior_list, data = dat, iter = 1000,
                   cores = 2, chains = 2, backend = "cmdstanr", #threads = threading(4),
                   control = list(adapt_delta = 0.999,max_treedepth = 20),
                   inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
@@ -82,7 +85,7 @@ modelSims<-function(iterations = 10, sigma = "none", xTime=25, nSamples = 20, ph
   if(i==1){
     metrics_df<-iteration_row
   } else{
-    metrics_df<-rbind(metrics_df, iteration_row)}
+    metrics_df<-rbind.fill(metrics_df, iteration_row)}
   }#close iterations for loop
   summ<-summarize(metrics_df, across(.cols=everything(), .fns = list(mean, sd), .names = "{.col}_{.fn}"))
   colnames(summ)<-str_replace_all(str_replace_all(colnames(summ), "_1", "_mean"), "_2", "_sd")
@@ -90,7 +93,7 @@ modelSims<-function(iterations = 10, sigma = "none", xTime=25, nSamples = 20, ph
   colnames(r1)<-str_remove_all(colnames(r1), "_mean")
   r2<- select(summ, contains("_sd"))
   colnames(r2)<-str_remove_all(colnames(r2), "_sd")
-  summ2<-rbind(r1, r2)
+  summ2<-rbind.fill(r1, r2)
   row.names(summ2)<-c("mean", "sd (between iterations)")
   summary_df<-summ2%>%select(contains("looIC"), contains("phi"), contains("Estimate"))
   
@@ -197,12 +200,19 @@ modelSimsOutput[5]
 modelSimsOutput[6]
 
 # run different sigmas to compare
-
+start<-Sys.time()
 modelSimsOutput_None<-modelSims(iterations = 5, sigma="none", xTime=25, nSamples = 20, phi1_a=200, phi2_a=13, phi3_a=3, phi1_b=160, phi2_b=13, phi3_b=3.5)
-Sys.sleep(10)
+Sys.time()-start
+Sys.sleep(120)
+start<-Sys.time()
 modelSimsOutput_linear<-modelSims(iterations = 5, sigma="linear", xTime=25, nSamples = 20, phi1_a=200, phi2_a=13, phi3_a=3, phi1_b=160, phi2_b=13, phi3_b=3.5)
-Sys.sleep(10)
+Sys.time()-start
+Sys.sleep(120)
+start<-Sys.time()
 modelSimsOutput_Spline<-modelSims(iterations = 5, sigma="spline", xTime=25, nSamples = 20, phi1_a=200, phi2_a=13, phi3_a=3, phi1_b=160, phi2_b=13, phi3_b=3.5)
+Sys.time()-start
+
+
 
 save(modelSimsOutput_None,modelSimsOutput_linear,modelSimsOutput_Spline,file ="modelSimsOutputs.rdata")
 
@@ -242,25 +252,25 @@ for (dat in arguments){
   }
   i=i+1
 }
-return(output_df)
+looPlot<-ggplot(output_df)+
+  geom_col(aes(x=name, y=loo_IC_Mean, fill=name))+
+  geom_point(aes(x=name, y=loo_IC_Mean, color=name))+
+  geom_point(aes(x=name, y=loo_IC_Mean+loo_IC_SE, color=name))+
+  geom_point(aes(x=name, y=loo_IC_Mean-loo_IC_SE, color=name))+
+  geom_segment(aes(x=name, x_end=name, y=loo_IC_Mean, y_end = loo_IC_Mean+loo_IC_SE))+
+  geom_segment(aes(x=name, x_end=name, y=loo_IC_Mean, y_end = loo_IC_Mean-loo_IC_SE))+
+  labs(title = "LOO IC", x="", y="")+
+  theme_minimal() +
+  theme(axis.line.y.left = element_line(),
+        axis.line.x.bottom = element_line())
+outputList<-list(output_df, looPlot)
+return(outputList)
 }
 test<-compareSimModels(m1, m2)
 head(test)
 
 
 
-
-
-test_names2 <- function(...) {
-  argnames <- sys.call()
-  arguments<-list(...)
-  i=1
-  for (dat in arguments){
-  name <- unlist(lapply(argnames[-1], as.character))[i]
-  print(name)
-  i=i+1
-  }
-}
 
 
 
