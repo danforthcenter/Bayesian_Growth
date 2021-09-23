@@ -601,7 +601,7 @@ test_quad <- cbind(df_test_quad, df_pred_quad)
 pQuad <- ggplot(test_quad,aes(time,Estimate))+
   facet_wrap(~treatment)+
   lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
-  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20")+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.3)+
   ylab("Area (cm, simulated)")+
   xlab("Time")+
   theme_light()+
@@ -634,7 +634,7 @@ test_exp <- cbind(df_test_exp, df_pred_exp)
 pExp <- ggplot(test_exp,aes(time,Estimate))+
   facet_wrap(~treatment)+
   lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
-  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20")+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.3)+
   ylab("Area (cm, simulated)")+
   xlab("Time")+
   theme_light()+
@@ -652,10 +652,10 @@ ggsave("Fig2/exponential_ribbons_with_sim_data.png",pExp, width = 7.04, height=4
 
 ################################## Patchwork ################################## 
 
-pSpline_titled<-pSpline+labs(title="Splines")
-pLinear_titled<-pLinear+labs(title="Linear")
+pSpline_titled<-pSpline+labs(title="Splines")+xlab("")
+pLinear_titled<-pLinear+labs(title="Linear")+ylab("")
 pExp_titled<-pExp+labs(title="Exponential")
-pQuad_titled<-pQuad+labs(title="Quadratic")
+pQuad_titled<-pQuad+labs(title="Quadratic")+ylab("")+xlab("")
 pNone_titled<-pNone+labs(title="None")
 
 patchesOhoolihan<- (pSpline_titled +pQuad_titled)/ (pNone_titled + pLinear_titled)
