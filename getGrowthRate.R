@@ -8,8 +8,6 @@ library(tidyverse)
 library(bayesplot)
 library(viridis)
 
-
-
 # Will have this and a similar function called getHeteroskedasticity (need to shorten that)
 # This function will be getGrowthRate
 # this will retrieve whatever multiplier is being put on time from a given brms model.
@@ -126,8 +124,9 @@ growthRate<-function(model, timeVar="time"){
       across(.cols=everything(),
              .fns = mean)
     )
+  formulaOut<-str_remove_all(formula, "\\s") #return the formula too for good measure.
   
-  output<-list(finalForm, dat)
+  output<-list(finalForm, formulaOut, dat)
   return(output)
 }
 
