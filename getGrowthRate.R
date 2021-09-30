@@ -108,6 +108,11 @@ fitLinear1
 fit_logistic
 fit_mono
 
+load("fit_quad_cluster.rdata")
+fit_quad_cluster
+load("spline_model_and_priors.rdata")
+fit_spline
+
 
 growthRate<-function(model, timeVar="time"){
   string<-model$formula[[1]] # pull out formula object
@@ -126,7 +131,9 @@ growthRate<-function(model, timeVar="time"){
     )
   formulaOut<-str_remove_all(formula, "\\s") #return the formula too for good measure.
   
-  output<-list(finalForm, formulaOut, dat)
+  fullSummary<-summary(model)
+  
+  output<-list(finalForm, formulaOut, dat, fullSummary)
   return(output)
 }
 
@@ -134,7 +141,7 @@ growthRate(fitLinear1)
 growthRate(fit_mono)
 growthRate(fit_logistic)
 
-
+growthRate(fit_spline)
 
 
 

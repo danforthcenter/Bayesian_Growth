@@ -6,6 +6,7 @@ library(cowplot)
 library(plyr)
 library(tidyverse) #sorry, I'll use it sparingly
 library(bayesplot)
+library(viridis)
 library(viridisLite)
 
 growthSim <- function(x,phi1,phi2,phi3){
@@ -220,6 +221,16 @@ modelSims<-function(iterations = 10, sigma = "none", xTime=25, nSamples = 20, ph
 
 ################################## Comparing outputs function ################################## 
 
+print(load("modelSimsConsoleOutputs_quad_100.rda"))
+modelSimsOutput_quad_100<-modelSimsOutput_quad
+
+print(load("modelSimsOutputs_quad_25.rda"))
+modelSimsOutput_quad_25<-modelSimsOutput_quad
+
+
+print(load("modelSimsConsoleOutputs_splines_100.rda"))
+modelSimsOutput_Spline_100<-modelSimsOutput_Spline
+
 compareSimModels<-function(...){
 argnames <- sys.call()
 arguments<-list(...)
@@ -281,14 +292,14 @@ return(outputList)
 
 `Homoskedastic Model`<-modelSimsOutput_None
 `Linear Heteroskedasticity`<-modelSimsOutput_linear
-`Quadratic Heteroskedasticity`<-modelSimsOutput_quad
-`Spline Heteroskedasticity`<-modelSimsOutput_Spline
+`Quadratic Heteroskedasticity`<-modelSimsOutput_quad_100
+`Spline Heteroskedasticity`<-modelSimsOutput_Spline_100
 
-test<-compareSimModels(`Homoskedastic Model`, `Linear Heteroskedasticity`, `Quadratic Heteroskedasticity`, `Spline Heteroskedasticity`)
+comparisons<-compareSimModels(`Homoskedastic Model`, `Linear Heteroskedasticity`, `Quadratic Heteroskedasticity`, `Spline Heteroskedasticity`)
 
-looICPlot<-test[3][[1]]
+looICPlot<-comparisons[3][[1]]
 looICPlot
-ggsave("Fig2/LOO_IC_sim_data.png",looICPlot, width = 7.04, height=4.04, dpi=300, bg = "#ffffff")
+ggsave("Fig2/LOO_IC_sim_data_100.png",looICPlot, width = 7.04, height=4.04, dpi=300, bg = "#ffffff")
 
 
 ################################## Function to Recapitulate growthSims Params ################################## 
