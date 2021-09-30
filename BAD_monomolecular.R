@@ -3,36 +3,32 @@ library(ggplot2)
 library(stringr)
 library(patchwork)
 library(cowplot)
+library(viridisLite)
 
-setwd("~/Danforth/Datasci/Bayesian_adaptive")
-
-#*************************************************************************************************
-# Simulated Data
-#*************************************************************************************************
-growthSim <- function(x,a,b,c){
+growthSimMM <- function(x,a,b){
   a_r <- a+rnorm(1,mean = 0,sd=10)
-  b_r <- b+rnorm(1,mean=0,sd=2)
-  c_r <- c+rnorm(1,mean=0,sd=.035)
-  return(a_r*exp(-b_r*exp(-c_r*x)))
+  b_r <- b+rnorm(1,mean=0,sd=0.025)
+  return(a_r-a_r*exp(-b_r*x))
 }
 
 x <- 1:25
 df <- rbind(
-  do.call(rbind,lapply(1:20,function(i) data.frame("sample"=paste0("sample_",i),"treatment"="a","time"=x,"y"=growthSim(x,200,13,.2),stringsAsFactors = F))),
-  do.call(rbind,lapply(1:20,function(i) data.frame("sample"=paste0("sample_",i),"treatment"="b","time"=x,"y"=growthSim(x,160,13,.25),stringsAsFactors = F)))
+  do.call(rbind,lapply(1:20,function(i) data.frame("sample"=paste0("sample_",i),"treatment"="a","time"=x,"y"=growthSimMM(x,200,.33),stringsAsFactors = F))),
+  do.call(rbind,lapply(1:20,function(i) data.frame("sample"=paste0("sample_",i),"treatment"="b","time"=x,"y"=growthSimMM(x,160,.42),stringsAsFactors = F)))
 )
 
 p <- ggplot(df,aes(time,y,group=interaction(treatment,sample)))+
   geom_line(aes(color=treatment))+
   ylab("Area (cm, simulated)")+
   xlab("Time")+
-  #scale_y_continuous(limits = c(0,300))+
+  labs(title="Monomolecular")+
   theme_light()+
   theme(axis.ticks.length=unit(0.2,"cm"))+
   theme(strip.background=element_rect(fill="gray50",color="gray20"),
         strip.text.x=element_text(size=14,color="white"),
         strip.text.y=element_text(size=14,color="white"))+
   theme(axis.title= element_text(size = 18))+
+  theme(title= element_text(size = 20))+
   theme(axis.text = element_text(size = 14))+
   theme(legend.position='top')
 p
@@ -40,41 +36,38 @@ p
 
 
 
-prior1 <- prior(lognormal(log(130), .25),nlpar = "a") +
-  prior(lognormal(log(12), .25), nlpar = "b") + 
-  prior(lognormal(log(1.2), .25), nlpar = "c") + 
+priorMono <- prior(lognormal(log(130), .25),nlpar = "a") +
+  prior(lognormal(log(2), .25), nlpar = "b") + 
   prior(student_t(3,0,5), dpar="sigma") +
   prior(gamma(2,0.1), class="nu")
 
-fit1 <- brm(bf(y ~ a*exp(-b*exp(-c*time)), 
+fitMono1 <- brm(bf(y ~ a-a*exp(-b*time), 
                sigma~time:treatment, 
-               a + b + c ~ 0+treatment, 
+               a + b ~ 0+treatment, 
                autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
-            family = student, prior = prior1, data = df, iter = 10000, 
-            cores = 2, chains = 2, backend = "cmdstanr", #threads = threading(4),
+            family = student, prior = priorMono, data = df, iter = 4000, 
+            cores = 2, chains = 4, backend = "cmdstanr", #threads = threading(4),
             control = list(adapt_delta = 0.999,max_treedepth = 20),
             inits = function(){list(b_a=rgamma(2,1),b_b=rgamma(2,1),b_c=rgamma(2,1))})
 
 
 
-h <- hypothesis(fit1, "a_treatmenta/a_treatmentb > 1")
+h <- hypothesis(fitMono1, "a_treatmenta/a_treatmentb > 1")
+
 plot(h)
-library(viridisLite)
+
 probs <- seq(from=99, to=1, by=-2)/100
-avg_pal <- turbo(n=length(probs))
+avg_pal <- plasma(n=length(probs))
 df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))
-df_pred <- predict(fit1,df_test,probs=probs) # add fit_spline in place of fit1 for first checks.
+df_pred <- predict(fitMono1,df_test,probs=probs) # add fit_spline in place of fit1 for first checks.
 test <- cbind(df_test,df_pred)
 
 p <- ggplot(test,aes(time,Estimate))+
   facet_wrap(~treatment)+
   lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
-  # geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20")+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.3)+
   ylab("Area (cm, simulated)")+
   xlab("Time")+
-  coord_cartesian(ylim=c(0,750))+
-  #lims(y=c(0,500))+
-  #scale_y_continuous(limits = c(0,300))+
   theme_light()+
   theme(axis.ticks.length=unit(0.2,"cm"))+
   theme(strip.background=element_rect(fill="gray50",color="gray20"),
@@ -84,8 +77,7 @@ p <- ggplot(test,aes(time,Estimate))+
   theme(axis.text = element_text(size = 14))+
   theme(legend.position='top')
 p
-ggsave("Fig2/gompertz_linear_ribbon.png",p, width = 7.04, height=4.04, dpi=300)
-
+ggsave("Fig2/monomolecular_linear_ribbon.png",p, width = 7.04, height=4.04, dpi=300)
 
 
 
@@ -94,21 +86,21 @@ ggsave("Fig2/gompertz_linear_ribbon.png",p, width = 7.04, height=4.04, dpi=300)
 ################################## Make Data Function ################################## 
 #***************************************************************************************
 
-makeData<-function(x.=x,nSamples.=nSamples, a_1.=a_1, a_2.=a_2, b_1.= b_1, b_2.=b_2, c_1.= c_1, c_2.=c_2 ){
+makeData<-function(x.=x,nSamples.=nSamples, a_1.=a_1, a_2.=a_2, b_1.= b_1, b_2.=b_2){
   df<-rbind(
     do.call(rbind,
             lapply(1:nSamples.,
                    function(i) data.frame("sample"=paste0("sample_",i),
                                           "treatment"="a",
                                           "time"=x.,
-                                          "y"=growthSim(x., a_1., b_1., c_1.),
+                                          "y"=growthSimMM(x., a_1., b_1.),
                                           stringsAsFactors = F))),
     do.call(rbind,
             lapply(1:nSamples.,
                    function(i) data.frame("sample"=paste0("sample_",i),
                                           "treatment"="b",
                                           "time"=x.,
-                                          "y"=growthSim(x., a_2., b_2., c_2.),
+                                          "y"=growthSimMM(x., a_2., b_2.),
                                           stringsAsFactors = F)))
   )
   return(df)
@@ -117,21 +109,20 @@ makeData<-function(x.=x,nSamples.=nSamples, a_1.=a_1, a_2.=a_2, b_1.= b_1, b_2.=
 ################################## define modelSims() for Power Law Growth Models ################################## 200,13,.2
 #*******************************************************************************************************************
 
-modelSimsGomp<-function(iterations = 5, sigma = "none", xTime=25, nSamples = 20, a_1 = 200, a_2=160, b_1 = 13, b_2=13,  c_1= 0.2, c_2=0.25){
+modelSimsMM<-function(iterations = 5, sigma = "none", xTime=25, nSamples = 20, a_1 = 200, a_2=160, b_1 = .33, b_2=.42){
   sigma_<-ifelse(sigma=="linear", "sigma~time+time:treatment,", 
                  ifelse(sigma=="spline", "sigma~s(time,by=treatment),",
                         ifelse(sigma=="quad", "lf(sigma~ time + timeSQ + time:treatment + timeSQ:treatment),",
                                ifelse(sigma=="exp", "sigma~time+time:treatment,", #Not evaluated, doesn't matter
                                       ifelse(sigma=="none", "", 
                                              paste0(sigma, ","))))))
-  bfText<-paste0("bf(y ~ a*exp(-b*exp(-c*time)),", 
+  bfText<-paste0("bf(y ~ a-a*exp(-b*time),", 
                  sigma_, 
-                 "a + b + c ~ 0+treatment,autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE)")
+                 "a + b ~ 0+treatment,autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE)")
   bayesFormula<-eval(parse(text = bfText))
   
   prior_list<-prior(lognormal(log(130), .25),nlpar = "a") +
-    prior(lognormal(log(12), .25), nlpar = "b") + 
-    prior(lognormal(log(1.2), .25), nlpar = "c") + 
+    prior(lognormal(log(2), .25), nlpar = "b") + 
     prior(gamma(2,0.1), class="nu")
   
   if(sigma %in% c("linear", "spline")){
@@ -148,8 +139,8 @@ modelSimsGomp<-function(iterations = 5, sigma = "none", xTime=25, nSamples = 20,
       prior(student_t(1, 0, 5), nlpar="d") + 
       prior(student_t(1, 0, 5), nlpar="r")
     
-    bayesFormula<-bf(y ~ a*exp(-b*exp(-c*time)),
-                     a + b + c ~ 0+treatment,
+    bayesFormula<-bf(y ~ a-a*exp(-b*time),
+                     a + b ~ 0+treatment,
                      autocor = ~arma(~time|sample:treatment,1,1), nl = TRUE)+
       nlf(sigma ~ d * exp(r * time))+
       lf(d + r ~ 0+treatment)
@@ -159,11 +150,11 @@ modelSimsGomp<-function(iterations = 5, sigma = "none", xTime=25, nSamples = 20,
     cat("\nStarting Iteration ", i, "/",iterations,"\n") 
     iteration_row<-data.frame(iteration = i, elpd_loo = NA,elpd_loo_se=NA, p_loo=NA, p_loo_se=NA, loo_IC=NA,loo_IC_se=NA) #store iteration number
     x<-1:xTime
-    dat <- makeData(x.=x,nSamples.=nSamples, a_1.=a_1, a_2.=a_2, b_1.= b_1, b_2.=b_2, c_1. = c_1, c_2.=c_2) #make the data
+    dat <- makeData(x.=x,nSamples.=nSamples, a_1.=a_1, a_2.=a_2, b_1.= b_1, b_2.=b_2) #make the data
     if(sigma=="quad"){dat$timeSQ<-dat$time^2}
     fit_none <- brm(bayesFormula,
                     family = student, prior = prior_list, data = dat, iter = 1000,
-                    cores = 2, chains = 2, backend = "cmdstanr",
+                    cores = 2, chains = 4, backend = "cmdstanr",
                     control = list(adapt_delta = 0.999,max_treedepth = 20),
                     inits = function(){list(b_a=rgamma(2,1),b_b=rgamma(2,1),b_c=rgamma(2,1))})
     
@@ -242,34 +233,10 @@ modelSimsGomp<-function(iterations = 5, sigma = "none", xTime=25, nSamples = 20,
     theme(axis.line.y.left = element_line(),
           axis.line.x.bottom = element_line())
   
-  cPlot<-metrics_df%>%
-    dplyr::select(contains("Estimate_c"))%>%
-    pivot_longer(cols = starts_with("Estimate"))%>%
-    dplyr::mutate(name=factor(str_remove_all(name, "Estimate_")))%>%
-    ggplot()+
-    geom_boxplot(aes(x=value, y=name))+
-    geom_point(aes(x=c_1, y=1), color="red", size=0.5)+
-    geom_point(aes(x=c_2, y=2), color="red", size=0.5)+
-    annotate("text", x=c_1, y=0.55, label=paste0(c_1), color="red", size=3)+
-    annotate("text", x=c_2, y=1.55, label=paste0(c_2), color="red", size=3)+
-    annotate("text", x = median(metrics_df$Estimate_c_treatmenta),
-             y = 1.45,
-             label = paste("Est:", round(median(metrics_df$Estimate_c_treatmenta), 2)),
-             size = 3)+
-    annotate("text", x = median(metrics_df$Estimate_c_treatmentb),
-             y = 2.45,
-             label = paste("Est:", round(median(metrics_df$Estimate_c_treatmentb), 2)),
-             size = 3)+
-    labs(title = paste0("'c' Estimation on ", iterations, " iterations"), x="", y="")+
-    theme_minimal() +
-    theme(axis.line.y.left = element_line(),
-          axis.line.x.bottom = element_line())
-  
-  
-  patchPlot<-aPlot+bPlot+cPlot
+  patchPlot<-aPlot+bPlot
   
   modelSimsOutput<-list(metrics_df, summary_df, patchPlot)
   return(modelSimsOutput)
 }
 
-modelSimsGomp()
+modelSimsMM(iterations=2)
