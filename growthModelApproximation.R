@@ -88,6 +88,10 @@ df<-rbind(
 
 #possibleModels<-c("logistic", "gompertz", "powerlaw", "monomolecular", "exponential", "linear")
 
+# There could be more arguments to control this better, like:
+# heteroskedasticity for trial models
+# k
+
 getGrowthModel<-function(dat=df, possibleModels = c("logistic", "gompertz", "powerlaw", "monomolecular", "exponential", "linear"), 
          comparisonIterations = 1, iterations = 1, sigma = "linear", timeVar = "time"){
 
@@ -97,64 +101,68 @@ if(!any(grepl(timeVar, colnames(df)))){
 }
   
 for (model in possibleModels){
-
-  if(model=="logistic"){
+  #**************************************
+  # Define priors and formulas for this iteration's model
+  #**************************************
+  if(model=="logistic"){ # need to all be reallly thick priors if we have no idea?
     specificFormula = "y ~ a/(1+exp((b-time)/c)),"
-    priorList <- prior(lognormal(log(130), .25),nlpar = "a",coef="treatmenta") +
-      prior(lognormal(log(130), .25),nlpar = "a",coef="treatmentb") + # need to be reallly thick priors if we have no idea?
-      prior(lognormal(log(12), .25), nlpar = "b",coef="treatmenta") +
-      prior(lognormal(log(12), .25), nlpar = "b",coef="treatmentb") +
-      prior(lognormal(log(3), .25), nlpar = "c",coef="treatmenta") +
-      prior(lognormal(log(3), .25), nlpar = "c",coef="treatmentb") +
+    priorList <- prior(lognormal(log(130), .25),nlpar = "a",coef="treatmenta") + # lognormal(log(100), .75)
+      prior(lognormal(log(130), .25),nlpar = "a",coef="treatmentb") +  # lognormal(log(100), .75)
+      prior(lognormal(log(12), .25), nlpar = "b",coef="treatmenta") + # lognormal(log(20), .75)
+      prior(lognormal(log(12), .25), nlpar = "b",coef="treatmentb") + # lognormal(log(20), .75)
+      prior(lognormal(log(3), .25), nlpar = "c",coef="treatmenta") + # lognormal(log(20), .75)
+      prior(lognormal(log(3), .25), nlpar = "c",coef="treatmentb") + # lognormal(log(20), .75)
       prior(student_t(3,0,5), dpar="sigma") +
       prior(gamma(2,0.1), class="nu")
     paramsToEstimate = "a + b + c"
     INITS_LIST<-list(b_a=rgamma(2,1),b_b=rgamma(2,1),b_c=rgamma(2,1))
   } else if(model=="gompertz"){
     specificFormula = "y ~ a*exp(-b*exp(-c*time)),"
-    priorList <- prior(lognormal(log(130), .25),nlpar = "a") +
-      prior(lognormal(log(12), .25), nlpar = "b") + 
-      prior(lognormal(log(1.2), .25), nlpar = "c") + 
+    priorList <- prior(lognormal(log(130), .25),nlpar = "a") + # lognormal(log(100), .75)
+      prior(lognormal(log(12), .25), nlpar = "b") + # lognormal(log(20), .75)
+      prior(lognormal(log(1.2), .25), nlpar = "c") + # lognormal(log(10), 1)
       prior(student_t(3,0,5), dpar="sigma") +
       prior(gamma(2,0.1), class="nu")
     paramsToEstimate = "a + b + c"
     INITS_LIST<-list(b_a=rgamma(2,1),b_b=rgamma(2,1),b_c=rgamma(2,1))
   } else if(model=="powerlaw"){
     specificFormula = "y ~ a* time^b,"
-    priorList <- prior(lognormal(log(13), .25),nlpar = "a") +
-      prior(lognormal(log(2), .25), nlpar = "b") + 
+    priorList <- prior(lognormal(log(13), .25),nlpar = "a") + # lognormal(log(20), .75)
+      prior(lognormal(log(2), .25), nlpar = "b") + # lognormal(log(10), 1)
       prior(student_t(3,0,5), dpar="sigma") +
       prior(gamma(2,0.1), class="nu")
     paramsToEstimate = "a + b"
     INITS_LIST<-list(b_a=rgamma(2,1),b_b=rgamma(2,1))
   } else if(model=="monomolecular"){
     specificFormula = "y ~ a-a*exp(-b*time),"
-    priorList <- prior(lognormal(log(130), .25),nlpar = "a") +
-      prior(lognormal(log(2), .25), nlpar = "b") + 
+    priorList <- prior(lognormal(log(130), .25),nlpar = "a") + # lognormal(log(100), .75)
+      prior(lognormal(log(2), .25), nlpar = "b") + # lognormal(log(10), 1)
       prior(student_t(3,0,5), dpar="sigma") +
       prior(gamma(2,0.1), class="nu")
     paramsToEstimate = "a + b"
     INITS_LIST<-list(b_a=rgamma(2,1),b_b=rgamma(2,1))
   } else if(model=="exponential"){
     specificFormula = "y ~ a*exp(b*time),"
-    priorList <- prior(lognormal(log(15), .25),nlpar = "a") +
-      prior(lognormal(log(0.1), .1), nlpar = "b") + 
+    priorList <- prior(lognormal(log(15), .25),nlpar = "a") + # lognormal(log(20), .75)
+      prior(lognormal(log(0.1), .1), nlpar = "b") + # lognormal(log(10), 1)
       prior(student_t(3,0,5), dpar="sigma") +
       prior(gamma(2,0.1), class="nu")
     paramsToEstimate = "a + b"
     INITS_LIST<-list(b_a=rgamma(2,1),b_b=rgamma(2,1))
   } else if(model=="linear"){
     specificFormula = "y ~ a*time,"
-    priorList <- prior(lognormal(log(1), .25),nlpar = "a") +
+    priorList <- prior(lognormal(log(1), .25),nlpar = "a") + # lognormal(log(10), 1)
       prior(student_t(3,0,5), dpar="sigma") +
       prior(gamma(2,0.1), class="nu")
     paramsToEstimate ="a"
     INITS_LIST<-list(b_a=rgamma(2,1))
   } else {
-    warning('Warning: "', model,'" is not recognized.\n Model options must be from: "logistic", "gompertz", "powerlaw", "monomolecular", "exponential", "linear"')
+    warning('Warning: "', model,'" is not recognized.\n Model options are: "logistic", "gompertz", "powerlaw", "monomolecular", "exponential", "linear"')
     break
     }
-  
+  #**************************************
+  # Try fitting models based on each kind of growth to whichever data is being used
+  #**************************************
   bfText<-paste0("bf(", specificFormula, "sigma~time:treatment, ",paramsToEstimate," ~ 0+treatment,autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE)")
   bayesFormula<-eval(parse(text = bfText))
   for (i in 1:comparisonIterations){
@@ -166,7 +174,9 @@ for (model in possibleModels){
                     cores = 2, chains = 2, backend = "cmdstanr",
                     control = list(adapt_delta = 0.999,max_treedepth = 20),
                     inits = function(){INITS_LIST})
-    
+    #**************************************
+    # Get model metrics
+    #**************************************
     fit<-add_criterion(fit, "loo")
     iteration_row$elpd_loo[1]<-fit$criteria$loo$estimates[1,1]
     iteration_row$elpd_loo_se[1]<-fit$criteria$loo$estimates[1,2]
@@ -186,33 +196,48 @@ for (model in possibleModels){
     } else{
       metrics_df<-rbind.fill(metrics_df, iteration_row)
     }
+  } #end loop on iterations
+    #**************************************
+    # Save metrics for this model under a new name
+    #**************************************
     metrics_df_means<-metrics_df%>%select(contains("loo"))%>%summarize(across(.cols=everything(), .fns = mean))
     saveDataText<-paste0(model,"Metrics_df<-metrics_df_means")
     eval(parse(text = saveDataText))
-  } #end loop on iterations
+    
+    # saveModelText<-paste0(model,"_mod<-fit")
+    # eval(parse(text = saveModelText))
+    # 
+    # retrieveBestModelText<-paste0("oldBestFit<-",bestModel,"_mod")
+    # eval(parse(text=retrieveBestModelText))
+    modelEstimates <- as.data.frame(fit$fit)%>%
+      select(contains("b_"))%>%
+      summarize(across(.cols=everything(), .fns=mean))
+    
+    storeModelEstimatesText<-paste0(model,"ModelEstimates<-modelEstimates")
+    eval(parse(text=storeModelEstimatesText))
+    
 } # end loop on models
 
-  # now need to do the comparison from each *Metrics_df
-  # new for loop that goes through all the models and does stuff to the *Metrics_df object,
-  # probably appending them all 
+  #**************************************
+  # combined metrics from all models into one dataframe
+  #**************************************
   
   for (i in 1:length(possibleModels)){
     if (i ==1){
-      # make a combined_df object out of the first *Metrics_df
       startCombinedDataText<-paste0("combined_df<-",
                                     possibleModels[i],
                                     "Metrics_df%>%select(contains('loo'))%>%mutate(model='",possibleModels[i],"')")
       eval(parse(text = startCombinedDataText))
-      # combined_df<-
     } else{
-      # rbind next *Metrics_dfs to the combined_df object (only LOO things)
       mutateText<-paste0("append_df<-",possibleModels[i],"Metrics_df%>%select(contains('loo'))%>%mutate(model='",possibleModels[i],"')")
       eval(parse(text = mutateText))
       combined_df<-rbind(combined_df, append_df)
     }
   }
   combined_df$model <- with(combined_df, reorder(model, -loo_IC))
-  
+  #**************************************
+  # Plot metrics from all models
+  #**************************************
   looPlot<-ggplot(combined_df)+
     geom_col(aes(x=model, y=loo_IC, fill=model))+
     geom_segment(aes(x=model, xend=model, y=loo_IC, yend = loo_IC+loo_IC_se), size = 1.5)+
@@ -224,30 +249,51 @@ for (model in possibleModels){
     theme(axis.line.y.left = element_line(),
           axis.line.x.bottom = element_line(),
           axis.text.x.bottom = element_blank())
-  
+  #**************************************
+  # Select best model
+  #**************************************
   bestModel<-combined_df%>%
     slice_min(order_by=loo_IC, n=1)%>%
     pull(model)
-  print(bestModel)
+
   bestModel<-bestModel[1]
-  print(bestModel)
-  # run a new brms model for "bestModel"
-  # these priors should probably be really thick since we have very little idea what is happening
-  #     unless I make a smarter function that grabs the parameters from the model that was from the 'bestModel' test...
+  
+  #**************************************
+  # Run new model for the best type of model
+  #**************************************  
+  # retrieveBestModelText<-paste0("oldBestFit<-",bestModel,"_mod")
+  # eval(parse(text=retrieveBestModelText))
+  # oldEstimates <- as.data.frame(oldBestFit$fit)%>%select(contains("b_"))%>%summarize(across(.cols=everything(), .fns=mean))
+  
   if(bestModel=="logistic"){
-    specificFormula = "y ~ a/(1+exp((b-time)/c)),"
-    priorList <- prior(lognormal(log(130), .25),nlpar = "a",coef="treatmenta") +
-      prior(lognormal(log(130), .25),nlpar = "a",coef="treatmentb") +
-      prior(lognormal(log(12), .25), nlpar = "b",coef="treatmenta") +
-      prior(lognormal(log(12), .25), nlpar = "b",coef="treatmentb") +
-      prior(lognormal(log(3), .25), nlpar = "c",coef="treatmenta") +
-      prior(lognormal(log(3), .25), nlpar = "c",coef="treatmentb") +
+    
+    # A<-logisticModelEstimates%>%select(contains("b_a"))%>%t()%>%mean() #need to either paste these together
+    # B<-logisticModelEstimates%>%select(contains("b_b"))%>%t()%>%mean() # or just use the numbers I had earlier
+    # C<-logisticModelEstimates%>%select(contains("b_c"))%>%t()%>%mean() #these are not evaluated here, so it 
+    specificFormula = "y ~ a/(1+exp((b-time)/c))," #                    gets messed up (A isn't in C++?)
+    
+    #priorText<-paste0('priorList<-prior(lognormal(log(',A,'), .25),nlpar="a" + prior(lognormal(log(',B,'), .25), nlpar = "b") + prior(lognormal(log(',C,'), .25), nlpar = "c") + prior(student_t(3,0,5), dpar="sigma") +prior(gamma(2,0.1), class="nu")')
+    #eval(parse(text=priorText))
+    priorList <- prior(lognormal(log(130), .25),nlpar = "a") +
+      prior(lognormal(log(12), .25), nlpar = "b") +
+      prior(lognormal(log(3), .25), nlpar = "c") +
       prior(student_t(3,0,5), dpar="sigma") +
       prior(gamma(2,0.1), class="nu")
     paramsToEstimate ="a + b + c"
     INITS_LIST<-list(b_a=rgamma(2,1),b_b=rgamma(2,1),b_c=rgamma(2,1))
   } else if(bestModel=="gompertz"){
+    # A<-gompertzModelEstimates%>%select(contains("b_a"))%>%t()%>%mean()
+    # B<-gompertzModelEstimates%>%select(contains("b_b"))%>%t()%>%mean()
+    # C<-gompertzModelEstimates%>%select(contains("b_c"))%>%t()%>%mean()
     specificFormula = "y ~ a*exp(-b*exp(-c*time)),"
+    
+    # priorText<-paste0('priorList<-prior(lognormal(log(',A,'), .25),nlpar="a" +
+    #                   prior(lognormal(log(',B,'), .25), nlpar = "b") + 
+    #                   prior(lognormal(log(',C,'), .25), nlpar = "c") + 
+    #                   prior(student_t(3,0,5), dpar="sigma") +
+    #                   prior(gamma(2,0.1), class="nu")')
+    # eval(parse(text=priorText))
+    
     priorList <- prior(lognormal(log(130), .25),nlpar = "a") +
       prior(lognormal(log(12), .25), nlpar = "b") + 
       prior(lognormal(log(1.2), .25), nlpar = "c") + 
@@ -256,7 +302,16 @@ for (model in possibleModels){
     paramsToEstimate ="a + b + c"
     INITS_LIST<-list(b_a=rgamma(2,1),b_b=rgamma(2,1),b_c=rgamma(2,1))
   } else if(bestModel=="powerlaw"){
+    # A<-powerlawModelEstimates%>%select(contains("b_a"))%>%t()%>%mean()
+    # B<-powerlawModelEstimates%>%select(contains("b_b"))%>%t()%>%mean()
     specificFormula = "y ~ a* time^b,"
+    
+    # priorText<-paste0('priorList<-prior(lognormal(log(',A,'), .25),nlpar="a" +
+    #                   prior(lognormal(log(',B,'), .25), nlpar = "b") + 
+    #                   prior(student_t(3,0,5), dpar="sigma") +
+    #                   prior(gamma(2,0.1), class="nu")')
+    # eval(parse(text=priorText))
+    
     priorList <- prior(lognormal(log(13), .25),nlpar = "a") +
       prior(lognormal(log(2), .25), nlpar = "b") + 
       prior(student_t(3,0,5), dpar="sigma") +
@@ -264,7 +319,16 @@ for (model in possibleModels){
     paramsToEstimate ="a + b"
     INITS_LIST<-list(b_a=rgamma(2,1),b_b=rgamma(2,1))
   } else if(bestModel=="monomolecular"){
+    # A<-monomolecularModelEstimates%>%select(contains("b_a"))%>%t()%>%mean()
+    # B<-monomolecularModelEstimates%>%select(contains("b_b"))%>%t()%>%mean()
     specificFormula = "y ~ a-a*exp(-b*time),"
+    
+    # priorText<-paste0('priorList<-prior(lognormal(log(',A,'), .25),nlpar="a" +
+    #                   prior(lognormal(log(',B,'), .25), nlpar = "b") + 
+    #                   prior(student_t(3,0,5), dpar="sigma") +
+    #                   prior(gamma(2,0.1), class="nu")')
+    # eval(parse(text=priorText))
+    
     priorList <- prior(lognormal(log(130), .25),nlpar = "a") +
       prior(lognormal(log(2), .25), nlpar = "b") + 
       prior(student_t(3,0,5), dpar="sigma") +
@@ -272,28 +336,35 @@ for (model in possibleModels){
     paramsToEstimate ="a + b"
     INITS_LIST<-list(b_a=rgamma(2,1),b_b=rgamma(2,1))
   } else if(bestModel=="exponential"){
+    # A<-exponentialModelEstimates%>%select(contains("b_a"))%>%t()%>%mean()
+    # B<-exponentialModelEstimates%>%select(contains("b_b"))%>%t()%>%mean()
     specificFormula = "y ~ a*exp(b*time),"
+    
+    # priorText<-paste0('priorList<-prior(lognormal(log(',A,'), .25),nlpar="a" +
+    #                   prior(lognormal(log(',B,'), .25), nlpar = "b") + 
+    #                   prior(student_t(3,0,5), dpar="sigma") +
+    #                   prior(gamma(2,0.1), class="nu"')
+    # eval(parse(text=priorText))
+    
     priorList <- prior(lognormal(log(15), .25),nlpar = "a") +
-      prior(lognormal(log(0.1), .1), nlpar = "b") + 
+      prior(lognormal(log(.1), .1), nlpar = "b") + 
       prior(student_t(3,0,5), dpar="sigma") +
       prior(gamma(2,0.1), class="nu")
     paramsToEstimate ="a + b"
     INITS_LIST<-list(b_a=rgamma(2,1),b_b=rgamma(2,1))
   } else if(bestModel=="linear"){
+    # A<-linearModelEstimates%>%select(contains("b_a"))%>%t()%>%mean()
     specificFormula = "y ~ a*time,"
+    
+    # priorText<-paste0('priorList<-prior(lognormal(log(',A,'), .25),nlpar="a" + prior(student_t(3,0,5), dpar="sigma") + prior(gamma(2,0.1), class="nu")')
+    # eval(parse(text=priorText))
+    
     priorList <- prior(lognormal(log(1), .25),nlpar = "a") +
       prior(student_t(3,0,5), dpar="sigma") +
       prior(gamma(2,0.1), class="nu")
     paramsToEstimate ="a"
     INITS_LIST<-list(b_a=rgamma(2,1))
   }
-  
-  print(specificFormula)
-  print(INITS_LIST)
-  print("Line 298")
-  
-  # if the time variable is not named time then this whole thing will just die.
-  # Might want to rename some variable to time early on
   
   sigma_<-ifelse(sigma=="linear", "sigma~time+time:treatment,", 
                  ifelse(sigma=="spline", "sigma~s(time,by=treatment),",
@@ -303,10 +374,7 @@ for (model in possibleModels){
   bfText<-paste0("bf(", specificFormula, 
                  sigma_, paramsToEstimate, 
                  " ~ 0+treatment,autocor = ~arma(~time|sample:treatment,1,1), nl = TRUE)")
-  
-  print(bfText)
-  print("Line 313")
-  
+
   bayesFormula<-eval(parse(text = bfText))
   
   if (sigma=="quad"){
@@ -324,20 +392,42 @@ for (model in possibleModels){
 " ~ 0+treatment,autocor = ~arma(~time|sample:treatment,1,1), nl = TRUE)+nlf(sigma ~ d * exp(r * time))+lf(d + r ~ 0+treatment)")
     bayesFormula<-eval(parse(text = bfText))
   }
-  
+  print("Compiling Best Fit Model")
   bestFit <- brm(bayesFormula,
          family = student, prior = priorList, data = dat, iter = 4000,
          cores = 2, chains = 4, backend = "cmdstanr",
          control = list(adapt_delta = 0.999,max_treedepth = 20),
          inits = function(){INITS_LIST})
   
-  outputList<-list(combined_df, looPlot, bestModel, bestFit)
+  #**************************************
+  # Ribbon graph of that model
+  #**************************************  
+  
+  probs <- seq(from=99, to=1, by=-2)/100
+  avg_pal <- plasma(n=length(probs))
+  df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))
+  df_pred <- predict(bestFit, df_test, probs=probs) # add fit_spline in place of fit1 for first checks.
+  test <- cbind(df_test,df_pred)
+  
+  ribbonPlot <- ggplot(test,aes(time,Estimate))+
+    facet_wrap(~treatment)+
+    lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
+    geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.3)+
+    ylab("Area (cm, simulated)")+
+    xlab("Time")+
+    theme_light()+
+    theme(axis.ticks.length=unit(0.2,"cm"))+
+    theme(strip.background=element_rect(fill="gray50",color="gray20"),
+          strip.text.x=element_text(size=14,color="white"),
+          strip.text.y=element_text(size=14,color="white"))+
+    theme(axis.title= element_text(size = 18))+
+    theme(axis.text = element_text(size = 14))+
+    theme(legend.position='top')
+  
+  outputList<-list(combined_df, looPlot, bestModel, bestFit, ribbonPlot)
   return(outputList)
   
 } #end function
-
-# dat=df, possibleModels = c("logistic", "gompertz", "powerlaw", "monomolecular", "exponential", "linear"), 
-# comparisonIterations = 1, iterations = 1, sigma = "linear", timeVar = "time"
 
 df<-rbind(
   do.call(rbind,
@@ -370,26 +460,86 @@ df_dap<-rbind(
                                         "DAP"=x,
                                         "y"=growthSimLogistic(x,160, 13, 3.5),
                                         stringsAsFactors = F))))
-#list(combined_df, looPlot, bestModel, bestFit)
+# list(combined_df, looPlot, bestModel, bestFit)
+# c("logistic", "gompertz", "powerlaw", "monomolecular", "exponential", "linear")
+
 growthModelOutput_from_df<-getGrowthModel(dat=df, 
-               possibleModels = c("logistic", "gompertz","linear"),
+               possibleModels = c("logistic", "gompertz","linear", "monomolecular"),
                comparisonIterations = 1, iterations = 1, 
                sigma = "linear", timeVar = "time")
 
 growthModelOutput_from_df[1]
+growthModelOutput_from_df[2]
+growthModelOutput_from_df[3]
 growthModelOutput_from_df[4]
 
 
-#**************************************
-# Compare all fit models, rank them by LOO IC or WAIC 
-#**************************************
+growthModelOutput_from_df_all<-getGrowthModel(dat=df, 
+                                          possibleModels = c("logistic", "gompertz", "monomolecular", "exponential", "linear"),
+                                          comparisonIterations = 1, iterations = 1, 
+                                          sigma = "linear", timeVar = "time")
+
+growthModelOutput_from_df_all[1]
+growthModelOutput_from_df_all[2]
+growthModelOutput_from_df_all[3]
+growthModelOutput_from_df_all[4]
+
+growthModelOutput_from_df_logistic<-getGrowthModel(dat=df, 
+                                              possibleModels = c("logistic", "gompertz", "monomolecular", "exponential", "linear"),
+                                              comparisonIterations = 1, iterations = 1, 
+                                              sigma = "linear", timeVar = "time")
+
+growthModelOutput_from_df_all_logistic[1]
+growthModelOutput_from_df_all_logistic[2]
+growthModelOutput_from_df_all_logistic[3]
+growthModelOutput_from_df_all_logistic[4]
+growthModelOutput_from_df_all_logistic[5]
+
 
 #**************************************
-# Return best model, comparisons of models, label for best growth rate formula estimate,
-# Estimates of coefficients for that formula, and how about a nice ribbon plot too
+# Look at the data and see what you think
 #**************************************
 
 
+ggplot(df,aes(time,y,group=interaction(treatment,sample)))+
+  geom_line(aes(color=treatment))+
+  ylab("Area (cm, simulated)")+
+  xlab("Time")+
+  labs(title="Input Data")+
+  theme_light()+
+  theme(axis.ticks.length=unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="gray50",color="gray20"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(title= element_text(size = 20))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+
+
+#**************************************
+# playing with how to recapitulate priors
+#**************************************
+
+
+A = 180.145722
+B = 13.0723891
+C = 3.2576259
+priorText<-paste0('prior_string(lognormal(log(',round(A),
+                  '), .25),nlpar="a" + prior_string(lognormal(log(',round(B),
+                  '), .25), nlpar = "b") + prior_string(lognormal(log(',round(C),
+                  '), .25), nlpar="c") + prior_string(student_t(3,0,5), dpar="sigma") +prior(gamma(2,0.1), class="nu")')
+priorText
+priorList<-eval(parse(text=priorText))
+
+fit <- brm(bf(y ~ a/(1+exp((b-time)/c)),
+                     sigma~time+time:treatment, #linear [no s()] variation
+                     a + b + c ~ 0+treatment,
+                     autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
+                  family = student, prior = priorList, data = df, iter = 1000,
+                  cores = 2, chains = 2, backend = "cmdstanr", 
+                  control = list(adapt_delta = 0.999,max_treedepth = 20),
+                  inits = function(){list(b_a=rgamma(2,1),b_b=rgamma(2,1),b_c=rgamma(2,1))})
 
 
 
