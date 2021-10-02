@@ -78,22 +78,9 @@ df<-rbind(
 #**************************************
 # Try fitting models based on each kind of growth to whichever data is being used
 #**************************************
-# Logistic
-# Gompertz
-# Power Law
-# Monomolecular
-# Exponential
-# Linear
-# Polynomial (picking degree could be problematic, I am having trouble with how this would work)
-
-#possibleModels<-c("logistic", "gompertz", "powerlaw", "monomolecular", "exponential", "linear")
-
-# There could be more arguments to control this better, like:
-# heteroskedasticity for trial models
-# k
 
 getGrowthModel<-function(dat=df, possibleModels = c("logistic", "gompertz", "powerlaw", "monomolecular", "exponential", "linear"), 
-         comparisonIterations = 1, iterations = 1, sigma = "linear", timeVar = "time"){
+         comparisonIterations = 1, comparisonModelIterations = 1000, bestModelIterations=4000, comparisonSigma="linear", sigma = "spline", timeVar = "time"){
 
 if(!any(grepl(timeVar, colnames(df)))){
   renameText<-paste0("dat <- dat%>%rename(time=",timeVar,")")
@@ -159,7 +146,38 @@ for (model in possibleModels){
   } else {
     warning('Warning: "', model,'" is not recognized.\n Model options are: "logistic", "gompertz", "powerlaw", "monomolecular", "exponential", "linear"')
     break
-    }
+  }
+  #**************************************
+  # Apply comparisonSigma
+  #**************************************
+  
+  sigma_<-ifelse(comparisonSigma=="linear", "sigma~time+time:treatment,", 
+                 ifelse(comparisonSigma=="spline", "sigma~s(time,by=treatment),",
+                        ifelse(comparisonSigma=="quad", "lf(sigma~ time + timeSQ + time:treatment + timeSQ:treatment),",
+                               ifelse(comparisonSigma=="exp", "sigma~time+time:treatment,", 
+                                      ifelse(comparisonSigma=="none", "", paste0(comparisonSigma))))))
+  bfText<-paste0("bf(", specificFormula, 
+                 sigma_, paramsToEstimate, 
+                 " ~ 0+treatment,autocor = ~arma(~time|sample:treatment,1,1), nl = TRUE)")
+  
+  bayesFormula<-eval(parse(text = bfText))
+  
+  if (comparisonSigma=="quad"){
+    prior_list<-prior_list+
+      prior(student_t(3,0,5), dpar="sigma", coef="time") + 
+      prior(student_t(3,0,5), dpar="sigma", coef="time:treatmentb") + 
+      prior(student_t(3,0,5), dpar="sigma", coef="timeSQ:treatmentb") + 
+      prior(student_t(3,0,5), dpar="sigma", coef="timeSQ")
+  } else if(comparisonSigma=="exp"){
+    prior_list <-prior_list +
+      prior(student_t(1, 0, 5), nlpar="d") + 
+      prior(student_t(1, 0, 5), nlpar="r")
+    
+    bfText<-paste0("bf(", specificFormula, ", ",paramsToEstimate, 
+                   " ~ 0+treatment,autocor = ~arma(~time|sample:treatment,1,1), nl = TRUE)+nlf(sigma ~ d * exp(r * time))+lf(d + r ~ 0+treatment)")
+    bayesFormula<-eval(parse(text = bfText))
+  }
+  
   #**************************************
   # Try fitting models based on each kind of growth to whichever data is being used
   #**************************************
@@ -170,7 +188,7 @@ for (model in possibleModels){
     iteration_row<-data.frame(iteration = i, elpd_loo = NA,elpd_loo_se=NA, p_loo=NA, p_loo_se=NA, loo_IC=NA,loo_IC_se=NA) #store iteration number
     
     fit <- brm(bayesFormula,
-                    family = student, prior = priorList, data = dat, iter = 1000,
+                    family = student, prior = priorList, data = dat, iter = comparisonModelIterations,
                     cores = 2, chains = 2, backend = "cmdstanr",
                     control = list(adapt_delta = 0.999,max_treedepth = 20),
                     inits = function(){INITS_LIST})
@@ -394,7 +412,7 @@ for (model in possibleModels){
   }
   print("Compiling Best Fit Model")
   bestFit <- brm(bayesFormula,
-         family = student, prior = priorList, data = dat, iter = 4000,
+         family = student, prior = priorList, data = dat, iter = bestModelIterations,
          cores = 2, chains = 4, backend = "cmdstanr",
          control = list(adapt_delta = 0.999,max_treedepth = 20),
          inits = function(){INITS_LIST})
@@ -485,7 +503,7 @@ growthModelOutput_from_df_all[3]
 growthModelOutput_from_df_all[4]
 
 growthModelOutput_from_df_logistic<-getGrowthModel(dat=df, 
-                                              possibleModels = c("logistic", "gompertz", "monomolecular", "exponential", "linear"),
+                                              possibleModels = c("logistic", "gompertz", "monomolecular", "linear"),
                                               comparisonIterations = 1, iterations = 1, 
                                               sigma = "linear", timeVar = "time")
 
@@ -495,6 +513,18 @@ growthModelOutput_from_df_all_logistic[3]
 growthModelOutput_from_df_all_logistic[4]
 growthModelOutput_from_df_all_logistic[5]
 
+#dat=df, possibleModels = c("logistic", "gompertz", "powerlaw", "monomolecular", "exponential", "linear"), 
+#comparisonIterations = 1, iterations = 1, 
+# comparisonModelIterations = 1000, bestModelIterations=4000, 
+# comparisonSigma="linear", sigma = "spline", timeVar = "time"
+  
+growthModelOutput_MoreArgs<-getGrowthModel(dat=df, 
+                                           possibleModels= c("logistic", "gompertz", "monomolecular", "linear"),
+                                           comparisonIterations = 1,
+                                           comparisonModelIterations = 1000, bestModelIterations=4000, 
+                                           comparisonSigma="linear", sigma = "spline", timeVar = "time")
+
+save(growthModelOutput_MoreArgs, file="growthModelOutput.rdata")
 
 #**************************************
 # Look at the data and see what you think

@@ -57,7 +57,7 @@ df <- rbind(
                  function(i) data.frame("sample"=paste0("sample_",i),"treatment"="b","time"=x,"y"=growthSim(x,160,13,3.5),stringsAsFactors = F)))
 )
 
-prior_linear <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
+prior_log <- prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmenta") +
   prior(lognormal(log(130), .25),nlpar = "phi1",coef="treatmentb") +
   prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmenta") +
   prior(lognormal(log(12), .25), nlpar = "phi2",coef="treatmentb") +
@@ -70,7 +70,7 @@ fit_logistic <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
                        sigma~time+time:treatment, #linear [no s()] variation
                        phi1 + phi2 + phi3 ~ 0+treatment,
                        autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
-                    family = student, prior = prior_linear, data = df, iter = 2000,
+                    family = student, prior = prior_log, data = df, iter = 2000,
                     cores = 2, chains = 4, backend = "cmdstanr", threads = threading(4),
                     control = list(adapt_delta = 0.999,max_treedepth = 20),
                     inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})

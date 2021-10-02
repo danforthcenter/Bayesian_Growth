@@ -139,8 +139,9 @@ getHetSked<-function(model){
   return(outList)
 }
 
-getHetSked(fit_spline)
-
+splineHetSked<-getHetSked(fit_spline)
+splineHetSked[[1]]
+head(splineHetSked[[2]])
 getHetSked(fit_quad_cluster)
 
 
