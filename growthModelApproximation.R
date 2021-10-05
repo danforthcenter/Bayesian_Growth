@@ -430,7 +430,7 @@ for (model in possibleModels){
   ribbonPlot <- ggplot(test,aes(time,Estimate))+
     facet_wrap(~treatment)+
     lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
-    geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.3)+
+    geom_line(data=dat,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.3)+
     ylab("Area (cm, simulated)")+
     xlab("Time")+
     theme_light()+
