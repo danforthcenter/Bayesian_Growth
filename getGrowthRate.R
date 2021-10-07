@@ -112,14 +112,21 @@ load("fit_quad_cluster.rdata")
 fit_quad_cluster
 load("spline_model_and_priors.rdata")
 fit_spline
-
+load("spline_fits/powerLawData_splineModel2.rdata")
 
 growthRate<-function(model, timeVar="time"){
   string<-model$formula[[1]] # pull out formula object
   formula<-as.character(string[3]) # pick the right hand side of formula
   formulaNoPar<-str_replace_all(formula, "(\\(|\\))", " ") # get rid of parenthesis
+  expForm<-""
+  expForm2<-str_extract(formulaNoPar, 
+                       paste0("(", timeVar,"\\s*\\^\\s*\\S*)"))
+  expForm<-paste0(expForm,expForm2)
   formulaTrimmed<-str_extract(formulaNoPar, # pull out time/stuff or time*stuff or stuff*time or stuff/time
                               paste0("(",timeVar, "\\s*(\\/\\s*\\S*|\\*\\s*\\S*))|(((\\S*\\s*\\*\\s*)|(\\S*\\s*\\/\\s?))",timeVar,")"))
+  if(nchar(expForm)>0){
+    formulaTrimmed<-expForm
+  }
   notEvenMyFinalForm<-str_remove_all(formulaTrimmed, "\\s") # get rid of spaces
   finalForm<-str_remove(notEvenMyFinalForm, paste0("(",timeVar,".)|(.",timeVar,")"))  #remove time variable label
   
@@ -136,6 +143,10 @@ growthRate<-function(model, timeVar="time"){
   output<-list(finalForm, formulaOut, dat, fullSummary)
   return(output)
 }
+
+plGrowthRate<-growthRate(fitPL1)
+plGrowthRate[1]
+plGrowthRate[2]
 
 growthRate(fitLinear1)
 growthRate(fit_mono)
