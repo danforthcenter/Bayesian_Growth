@@ -84,8 +84,8 @@ modelSims<-function(iterations = 10, sigma = "none", xTime=25, nSamples = 20, ph
   dat <- makeData(x. = x, nSamples.=nSamples, phi1_1.=phi1_a, phi2_1.=phi2_a, phi3_1.=phi3_a, phi1_2.=phi1_b, phi2_2.=phi2_b, phi3_2.=phi3_b) #make the data
   if(sigma=="quad"){dat$timeSQ<-dat$time^2}
   fit_none <- brm(bayesFormula,
-                  family = student, prior = prior_list, data = dat, iter = 4000,
-                  cores = 2, chains = 4, backend = "cmdstanr",
+                  family = student, prior = prior_list, data = dat, iter = 2000,
+                  cores = 4, chains = 4, backend = "cmdstanr",
                   control = list(adapt_delta = 0.999,max_treedepth = 20),
                   inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
   
@@ -219,17 +219,28 @@ modelSims<-function(iterations = 10, sigma = "none", xTime=25, nSamples = 20, ph
 # Sys.time()-start
 #save(modelSimsOutput_quad,file ="modelSimsOutputs_quad_20.rda")
 
+# start<-Sys.time()
+# modelSimsOutput_exp<-modelSims(iterations = 10, sigma="exp", xTime=25, nSamples = 20, phi1_a=200, phi2_a=13, phi3_a=3, phi1_b=160, phi2_b=13, phi3_b=3.5)
+# Sys.time()-start
+# save(modelSimsOutput_exp, file="modelSimsOutput_exp_10_iterations.rdata")
+
+
 ################################## Comparing outputs function ################################## 
 
-print(load("modelSimsConsoleOutputs_quad_100.rda"))
+print(load("modelSimsOutputs/modelSimsConsoleOutputs_quad_100.rda"))
 modelSimsOutput_quad_100<-modelSimsOutput_quad
 
-print(load("modelSimsOutputs_quad_25.rda"))
+print(load("modelSimsOutputs/modelSimsOutputs_quad_25.rda"))
 modelSimsOutput_quad_25<-modelSimsOutput_quad
 
+print(load("modelSimsOutputs/modelSimsOutput_None_100.rdata"))
+print(load("modelSimsOutputs/modelSimsOutput_Linear_100.rdata"))
 
-print(load("modelSimsConsoleOutputs_splines_100.rda"))
+print(load("modelSimsOutputs/modelSimsConsoleOutputs_splines_100.rda"))
 modelSimsOutput_Spline_100<-modelSimsOutput_Spline
+
+print(load("modelSimsOutputs/modelSimsOutput_exp_10_iterations.rdata"))
+modelSimsOutput_Exp_10<-modelSimsOutput_exp
 
 compareSimModels<-function(...){
 argnames <- sys.call()
@@ -294,12 +305,13 @@ return(outputList)
 `Linear Heteroskedasticity`<-modelSimsOutput_linear
 `Quadratic Heteroskedasticity`<-modelSimsOutput_quad_100
 `Spline Heteroskedasticity`<-modelSimsOutput_Spline_100
+`Exponential Heteroskedasticity`<-modelSimsOutput_Exp_10
 
-comparisons<-compareSimModels(`Homoskedastic Model`, `Linear Heteroskedasticity`, `Quadratic Heteroskedasticity`, `Spline Heteroskedasticity`)
+comparisons<-compareSimModels(`Homoskedastic Model`, `Linear Heteroskedasticity`, `Quadratic Heteroskedasticity`, `Spline Heteroskedasticity`,`Exponential Heteroskedasticity`)
 
 looICPlot<-comparisons[3][[1]]
 looICPlot
-ggsave("Fig2/LOO_IC_sim_data_100.png",looICPlot, width = 7.04, height=4.04, dpi=300, bg = "#ffffff")
+ggsave("Fig2/LOO_IC_sim_data_100_withExp.png",looICPlot, width = 7.04, height=4.04, dpi=300, bg = "#ffffff")
 
 
 ################################## Function to Recapitulate growthSims Params ################################## 
@@ -439,7 +451,7 @@ fit_spline <- brm(bf(y ~ phi1/(1+exp((phi2-time)/phi3)),
 
 save(fit_spline, prior_spline, file="spline_model_and_priors.rdata")
 
-load("spline_model_and_priors.rdata")
+print(load("spline_model_and_priors.rdata"))
 
 probs <- seq(from=99, to=1, by=-2)/100
 avg_pal <- turbo(n=length(probs))
@@ -449,23 +461,111 @@ test_spline<- cbind(df_test_spline, df_pred_spline)
 
 pSpline<-ggplot(test_spline,aes(time,Estimate))+
   facet_wrap(~treatment)+
-  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
-  geom_line(data=df,aes(time, y, group=interaction(treatment,sample)),color="gray20", size=0.3)+
-  ylab("Area (cm, simulated)")+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.4))+
+  geom_line(data=df,aes(time, y, group=interaction(treatment,sample)),color="gray20", size=0.5)+
+  ylab(~~Area~(cm^2))+
   xlab("Time")+
   theme_light()+
-  theme(axis.ticks.length=unit(0.2,"cm"))+
+  theme(axis.ticks.length=ggplot2::unit(0.2,"cm"))+
   theme(strip.background=element_rect(fill="gray50",color="gray20"),
         strip.text.x=element_text(size=14,color="white"),
         strip.text.y=element_text(size=14,color="white"))+
   theme(axis.title= element_text(size = 18))+
-  theme(title= element_text(size = 20))+
+  theme(title= element_text(size = 18))+
   theme(axis.text = element_text(size = 14))+
   theme(legend.position='top')
 pSpline
 
+pSpline+
+  labs(fill="CI")
+
 ggsave("Fig2/spline_ribbons_with_sim_data.png",pSpline, width = 7.04, height=4.04, dpi=300)
 
+
+probs <- seq(from=99, to=1, by=-2)/100
+avg_pal <- turbo(n=length(probs))
+newTest<-test_spline%>%
+  mutate(turbo = avg_pal)
+ggplot(newTest, aes(time,Estimate))+
+  facet_wrap(~treatment)+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = ""),fill=paste0("turbo[",50-i,"]")),alpha=0.5))+  
+  geom_line(data=df,aes(time, y, group=interaction(treatment,sample)),color="gray20", size=0.3)+
+  ylab("Area (cm, simulated)")+
+  xlab("Time")+
+  theme_light()+
+  theme(axis.ticks.length=ggplot2::unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="gray50",color="gray20"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(title= element_text(size = 18))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+
+install.packages("ggnewscale")
+library(ggnewscale)
+
+test_spline%>%
+  cbind(data.frame(turbo = avg_pal))%>%
+ggplot(aes(time,Estimate))+
+  facet_wrap(~treatment)+
+  ggnewscale::new_scale_fill()+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = ""),fill=paste0("turbo(n=50)[",i,"]")),alpha=0.5))+
+  geom_line(data=df,aes(time, y, group=interaction(treatment,sample)),color="gray20", size=0.3)+
+  ylab("Area (cm, simulated)")+
+  xlab("Time")+
+  theme_light()+
+  theme(axis.ticks.length=ggplot2::unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="gray50",color="gray20"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(title= element_text(size = 18))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+
+
+########## cludging it with a picture?
+newTest<-test_spline%>%
+  filter(treatment=="a")%>%
+  filter(time>=24)
+ggplot(newTest, aes(time,Estimate))+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
+  lapply(seq(1,99,14), function(i) annotate("segment", x= 25, xend = 25+(sqrt(abs(50 - i))/7), 
+                                        y= eval(parse(text=paste0("mean(newTest$Q",100-i,")"))),#eval(parse(text=paste0("newTest$Q",100-i,"[1]"))), 
+                                        yend = eval(parse(text=paste0("mean(newTest$Q",100-i,")")))#eval(parse(text=paste0("newTest$Q",100-i,"[1]")))
+                                        ))+
+  ylab(" ")+
+  xlab(" ")+
+  lims(x=c(24,28))+
+  theme_light()+
+  theme(axis.ticks.length=ggplot2::unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="white",color="white"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(title= element_text(size = 18))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+
+ggplot(newTest, aes(time,Estimate))+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),
+                                                        ymax=paste("Q",100-i,sep = "")),
+                                             fill=avg_pal[i],alpha=0.5))+
+  lapply(c(1,15,29,43,49,51,57,71,85,99), function(i) annotate("segment", x= 25, xend = 25+(sqrt(abs(50 - i))/9), 
+                                            y= eval(parse(text=paste0("mean(newTest$Q",100-i,")"))),
+                                            yend = eval(parse(text=paste0("mean(newTest$Q",100-i,")")))
+  ))+
+  lapply(c(1,15,29,43,49,51,57,71,85,99), function(i) annotate("text", x = 25.25+(sqrt(abs(50 - i))/9), 
+                                                               y= eval(parse(text=paste0("mean(newTest$Q",100-i,")"))),
+                                                               label = ifelse(i == 51, "50%", ifelse(i == 49, "",paste0(i,"%"))), size=3)
+  )+
+  ylab(" ")+
+  xlab(" ")+
+  lims(x=c(24,28), y=c(120,300))+
+  theme_void()
+
+newTest%>%dplyr::select(contains("Q"))%>%colnames()%>%str_remove_all("Q")%>%as.numeric()
 ################################## Graphing Ribbons None ################################## 
 
 
@@ -498,9 +598,9 @@ test_none <- cbind(df_test_none,df_pred_none)
 
 pNone <- ggplot(test_none, aes(time,Estimate))+
   facet_wrap(~treatment)+
-  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
-  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.3)+
-  ylab("Area (cm, simulated)")+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.4))+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.5)+
+  ylab(~~Area~(cm^2))+
   xlab("Time")+
   coord_cartesian(ylim=c(0,250))+
   theme_light()+
@@ -509,7 +609,7 @@ pNone <- ggplot(test_none, aes(time,Estimate))+
         strip.text.x=element_text(size=14,color="white"),
         strip.text.y=element_text(size=14,color="white"))+
   theme(axis.title= element_text(size = 18))+
-  theme(title= element_text(size = 20))+
+  theme(title= element_text(size = 18))+
   theme(axis.text = element_text(size = 14))+
   theme(legend.position='top')
 pNone
@@ -550,9 +650,9 @@ test_linear <- cbind(df_test_linear, df_pred_linear)
 
 pLinear <- ggplot(test_linear,aes(time,Estimate))+
   facet_wrap(~treatment)+
-  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
-  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.3)+
-  ylab("Area (cm, simulated)")+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.4))+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.5)+
+  ylab(~~Area~(cm^2))+
   xlab("Time")+
   theme_light()+
   theme(axis.ticks.length=unit(0.2,"cm"))+
@@ -560,7 +660,7 @@ pLinear <- ggplot(test_linear,aes(time,Estimate))+
         strip.text.x=element_text(size=14,color="white"),
         strip.text.y=element_text(size=14,color="white"))+
   theme(axis.title= element_text(size = 18))+
-  theme(title= element_text(size = 20))+
+  theme(title= element_text(size = 18))+
   theme(axis.text = element_text(size = 14))+
   theme(legend.position='top')
 pLinear
@@ -611,9 +711,9 @@ test_quad <- cbind(df_test_quad, df_pred_quad)
 
 pQuad <- ggplot(test_quad,aes(time,Estimate))+
   facet_wrap(~treatment)+
-  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
-  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.3)+
-  ylab("Area (cm, simulated)")+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.4))+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.5)+
+  ylab(~~Area~(cm^2))+
   xlab("Time")+
   theme_light()+
   theme(axis.ticks.length=unit(0.2,"cm"))+
@@ -621,7 +721,7 @@ pQuad <- ggplot(test_quad,aes(time,Estimate))+
         strip.text.x=element_text(size=14,color="white"),
         strip.text.y=element_text(size=14,color="white"))+
   theme(axis.title= element_text(size = 18))+
-  theme(title= element_text(size = 20))+
+  theme(title= element_text(size = 18))+
   theme(axis.text = element_text(size = 14))+
   theme(legend.position='top')
 pQuad
@@ -630,23 +730,20 @@ ggsave("Fig2/quadratic_ribbons_with_sim_data.png",pQuad, width = 7.04, height=4.
 
 ################################### Ribbons for EXP ###############################
 
-load("exponential_fit_2.rdata") #loads fit_exp_2
+
+print(load("logisticData_exponentialVar.rdata"))
 
 probs <- seq(from=99, to=1, by=-2)/100
 avg_pal <- turbo(n=length(probs))
-df_test_exp_a <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"))
-df_test_exp_b <- rbind(data.frame("treatment"="b",time=1:25,sample="new2"))
-df_test_exp<-rbind(df_test_exp_a, df_test_exp_b)
-df_pred_exp <- predict(fit_exp_2, df_test_exp, probs=probs) 
-test_exp <- cbind(df_test_exp, df_pred_exp)
+df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))
+df_pred <- predict(logisticData_exponentialVar, df_test, probs=probs) 
+test <- cbind(df_test,df_pred)
 
-#summary(fit_exp_2)
-
-pExp <- ggplot(test_exp,aes(time,Estimate))+
+pExp <- ggplot(test,aes(time,Estimate))+
   facet_wrap(~treatment)+
-  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
-  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.3)+
-  ylab("Area (cm, simulated)")+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.4))+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.5)+
+  ylab(~~Area~(cm^2))+
   xlab("Time")+
   theme_light()+
   theme(axis.ticks.length=unit(0.2,"cm"))+
@@ -654,29 +751,65 @@ pExp <- ggplot(test_exp,aes(time,Estimate))+
         strip.text.x=element_text(size=14,color="white"),
         strip.text.y=element_text(size=14,color="white"))+
   theme(axis.title= element_text(size = 18))+
-  theme(title= element_text(size = 20))+
+  theme(title= element_text(size = 18))+
   theme(axis.text = element_text(size = 14))+
   theme(legend.position='top')
+
 pExp
 
 ggsave("Fig2/exponential_ribbons_with_sim_data.png",pExp, width = 7.04, height=4.04, dpi=300)
 
 ################################## Patchwork ################################## 
 
-pSpline_titled<-pSpline+labs(title="Splines")+xlab("")
-pLinear_titled<-pLinear+labs(title="Linear")+ylab("")
-pExp_titled<-pExp+labs(title="Exponential")
-pQuad_titled<-pQuad+labs(title="Quadratic")+ylab("")+xlab("")
-pNone_titled<-pNone+labs(title="None")
+pSpline_titled<-pSpline+labs(title="Splines")+coord_cartesian(ylim=c(0,250))+
+  theme(axis.text = element_text(size = 10),axis.title= element_text(size = 8),
+                                                    title = element_text(size=10))
+pLinear_titled<-pLinear+labs(title="Linear")+coord_cartesian(ylim=c(0,250))+ylab("")+xlab("")+theme(axis.text = element_text(size = 8),
+                                                                     axis.title= element_text(size = 8),
+                                                                     title = element_text(size=10))
+pExp_titled<-pExp+labs(title="Exponential")+coord_cartesian(ylim=c(0,250))+ylab("")+xlab("")+theme(axis.text = element_text(size = 8),
+                                                                    axis.title= element_text(size = 8),
+                                                                    title = element_text(size=10))
+pQuad_titled<-pQuad+labs(title="Quadratic")+coord_cartesian(ylim=c(0,250))+ylab("")+theme(axis.text = element_text(size = 10),
+                                                           axis.title= element_text(size = 8),
+                                                           title = element_text(size=10))
+pNone_titled<-pNone+labs(title="Homoskedastic")+coord_cartesian(ylim=c(0,250))+xlab("")+theme(axis.text = element_text(size = 8),
+                                                               axis.title= element_text(size = 8),
+                                                               title = element_text(size=10))
 
-patchesOhoolihan<- (pSpline_titled +pQuad_titled)/ (pNone_titled + pLinear_titled)
+#looICPlot_to_add<-
+looDf<-comparisons[[2]]%>%
+  mutate(modelName = str_remove_all(modelName, "Model"))%>%
+  mutate(modelName = str_remove_all(modelName, "Heteroskedasticity"))
+looDf$modelName <- with(looDf, reorder(modelName, -loo_IC_Mean))
+
+looICPlot_to_add<-looDf%>%
+  ggplot()+
+  geom_col(aes(x=modelName, y=loo_IC_Mean, fill=modelName))+
+  geom_segment(aes(x=modelName, xend=modelName, y=loo_IC_Mean, yend = loo_IC_Mean+loo_IC_SE), size = 1.5)+
+  geom_segment(aes(x=modelName, xend=modelName, y=loo_IC_Mean, yend = loo_IC_Mean-loo_IC_SE), size = 1.5)+
+  geom_text(aes(x=modelName, y=loo_IC_Mean*1.08, label = paste0(round(loo_IC_Mean, digits=0))), size=3)+
+  labs(title = "LOO IC", x="", y="", fill="Model")+
+  scale_fill_viridis(discrete = T)+
+  theme_minimal() +
+  theme(axis.line.y.left = element_line(),
+        axis.line.x.bottom = element_line(),
+        axis.text.x.bottom = element_blank(),
+        axis.text.y = element_blank(),
+        title = element_text(size=10),
+        legend.title = element_text(size=6.5),
+        legend.text = element_text(size=6.5))
+looICPlot_to_add
+patchesOhoolihan<- (pNone_titled | pLinear_titled | pExp_titled)/(pSpline_titled | pQuad_titled | looICPlot_to_add)
 patchesOhoolihan
 
-ggsave("Fig2/CombinedRibbons.png", patchesOhoolihan,width = 9.54, height=9.54, dpi=300)
+ggsave("Fig2/CombinedRibbons_loo_2.png", patchesOhoolihan, dpi=300, width = 10, height = 5)
 
 
 
+newExp<-add_criterion(logisticData_exponentialVar,"loo")
 
+newExp$criteria$loo
 
 
 

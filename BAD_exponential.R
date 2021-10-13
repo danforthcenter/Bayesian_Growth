@@ -4,7 +4,7 @@ library(ggplot2)
 library(stringr)
 library(patchwork)
 library(cowplot)
-library(viridisLite)
+library(viridis)
 
 growthSimExp <- function(x,a,b,c){
   a_r <- a+rnorm(1,mean = 0,sd=1.5)
@@ -66,11 +66,12 @@ fitExp_spline <- brm(bf(y ~ a*exp(b*time),
                   sigma~s(time,by=treatment), 
                   a + b ~ 0+treatment, 
                   autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
-               family = student, prior = priorExp, data = df, iter = 2000, 
+               family = student, prior = priorExp, data = dfExp, iter = 2000, 
                cores = 2, chains = 2, backend = "cmdstanr", #threads = threading(4),
                control = list(adapt_delta = 0.999,max_treedepth = 20),
                inits = function(){list(b_a=rgamma(2,1),b_b=rgamma(2,1))})
-save(fitExp_spline, "exponentialData_splineModel.rdata")
+save(fitExp_spline, dfExp, "exponentialData_splineModel.rdata")
+
 
 h <- hypothesis(fitExp1, "a_treatmenta/a_treatmentb > 1")
 h
@@ -130,7 +131,7 @@ makeData<-function(x.=x,nSamples.=nSamples, a_1.=a_1, a_2.=a_2, b_1.= b_1, b_2.=
 ################################## define modelSims() for Power Law Growth Models ################################## 
 #*******************************************************************************************************************
 
-modelSimsExp<-function(iterations = 5, sigma = "none", xTime=25, nSamples = 20, a_1 = 17, a_2=0.095, b_1 = 16, b_2=0.085){
+modelSimsExp<-function(iterations = 5, sigma = "none", xTime=25, nSamples = 20, a_1 = 17, a_2=16, b_1 = 0.095, b_2=0.085){
   sigma_<-ifelse(sigma=="linear", "sigma~time+time:treatment,", 
                  ifelse(sigma=="spline", "sigma~s(time,by=treatment),",
                         ifelse(sigma=="quad", "lf(sigma~ time + timeSQ + time:treatment + timeSQ:treatment),",

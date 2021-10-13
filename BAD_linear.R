@@ -3,7 +3,7 @@ library(ggplot2)
 library(stringr)
 library(patchwork)
 library(cowplot)
-library(viridisLite)
+library(viridis)
 
 growthSimL <- function(x,a){
   a_r <- a+rnorm(1,mean = 0,sd=0.2)
@@ -34,7 +34,7 @@ p
 
 
 priorLinear <- prior(lognormal(log(1), .25),nlpar = "a") +
-  prior(student_t(3,0,5), dpar="sigma") +
+  prior(student_t(3,0,5), dpar="sigma") + 
   prior(gamma(2,0.1), class="nu")
 
 fitLinear1 <- brm(bf(y ~ a*time, 
@@ -47,7 +47,7 @@ fitLinear1 <- brm(bf(y ~ a*time,
                 inits = function(){list(b_a=rgamma(2,1))})
 
 h <- hypothesis(fitLinear1, "a_treatmenta/a_treatmentb > 1")
-
+h
 plot(h)
 
 probs <- seq(from=99, to=1, by=-2)/100

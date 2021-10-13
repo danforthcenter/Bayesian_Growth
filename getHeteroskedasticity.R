@@ -206,6 +206,9 @@ as.data.frame(p13$fit)%>%
   select(contains("sigma"), -contains("Intercept"))%>% # splines return a bunch of columns
   summarize(across(.cols=everything(), .fns = mean))
 
-p13$fit$sim$samples[[2]]
-
+p13$fit #8 rows for s_sigma_stimetreatmenta_1
+        # 8 rows for s_sigma_stimetreatmentb_1
+        # 8 rows for zs_sigma_1_1
+        # 8 rows for zs_sigma_2_1
+# all these have to be coming from the matrices out of mgcv, but getting 8 columns is not clearw
 

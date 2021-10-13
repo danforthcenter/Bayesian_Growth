@@ -3,7 +3,6 @@ library(ggplot2)
 library(stringr)
 library(patchwork)
 library(cowplot)
-library(viridisLite)
 library(viridis)
 
 growthSimPL <- function(x,a,b){
@@ -54,7 +53,16 @@ fitPL1 <- brm(bf(y ~ a* time^b,
                 cores = 2, chains = 2, backend = "cmdstanr", #threads = threading(4),
                 control = list(adapt_delta = 0.999,max_treedepth = 20),
                 inits = function(){list(b_a=rgamma(2,1),b_b=rgamma(2,1))})
-
+dfPL<-df
+fitPL1 <- brm(bf(y ~ a* time^b, 
+                 sigma~s(time, by=treatment), 
+                 a + b  ~ 0+treatment, 
+                 autocor = ~arma(~time|sample:treatment,1,1),nl = TRUE),
+              family = student, prior = priorPL, data = df, iter = 2000, 
+              cores = 4, chains = 4, backend = "cmdstanr", #threads = threading(4),
+              control = list(adapt_delta = 0.999,max_treedepth = 20),
+              inits = function(){list(b_a=rgamma(2,1),b_b=rgamma(2,1))})
+save(fitPL1, dfPL, file="powerLawData_splineModel2.rdata")
 
 
 h <- hypothesis(fitPL1, "a_treatmenta/a_treatmentb > 1")

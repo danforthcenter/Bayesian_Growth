@@ -239,4 +239,9 @@ modelSimsMM<-function(iterations = 5, sigma = "none", xTime=25, nSamples = 20, a
   return(modelSimsOutput)
 }
 
-modelSimsMM(iterations=2)
+modelSimsMM(iterations=8)
+
+
+
+
+
