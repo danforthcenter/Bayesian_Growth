@@ -89,7 +89,7 @@ runSims<-function(asymptote1 = 200,
                        autocor = ~arma(~time|sample:treatment,1,1), 
                        nl = TRUE), 
                     family = student, prior = priorList, data = iterDf, iter = 2000, 
-                    cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4), 
+                    cores = 4, chains = 4, backend = "cmdstanr", #threads = threading(4), 
                     control = list(adapt_delta = 0.999, max_treedepth = 20),
                     inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
       
@@ -103,7 +103,7 @@ runSims<-function(asymptote1 = 200,
                         autocor = ~arma(~time|sample:treatment,1,1), 
                         nl = TRUE), 
                      family = student, prior = priorList, data = iterDf, iter = 2000, 
-                     cores = 4, chains = 4, backend = "cmdstanr", threads = threading(4), 
+                     cores = 4, chains = 4, backend = "cmdstanr", #threads = threading(4), 
                      control = list(adapt_delta = 0.999, max_treedepth = 20),
                      inits = function(){list(b_phi1=rgamma(2,1),b_phi2=rgamma(2,1),b_phi3=rgamma(2,1))})
        h<-hypothesis(fitIter, "phi1_treatmenta/phi1_treatmentb > 1")
@@ -126,12 +126,42 @@ runSims<-function(asymptote1 = 200,
   return(outputDf)
 }
 
-runSims_160v200_100iter<-runSims(asymptote1 = 200,
-        asymptote2 = 160,
-        iterations = 100,
-        firstTestDay = 15,
-        lastTestDay=25)
+# *********************************************
+# Use runSims()
+# *********************************************
 
+# runSims_160v200_100iter<-runSims(asymptote1 = 200,
+#         asymptote2 = 160,
+#         iterations = 100,
+#         firstTestDay = 15,
+#         lastTestDay=25)
+# save(runSims_160v200_100iter, "runSims_160v200_100iter.rdata")
+# 
+# runSims_170v200_100iter<-runSims(asymptote1 = 200,
+#                                  asymptote2 = 170,
+#                                  iterations = 100,
+#                                  firstTestDay = 15,
+#                                  lastTestDay=25)
+# save(runSims_170v200_100iter, "runSims_170v200_100iter.rdata")
 
+# runSims_180v200_100iter<-runSims(asymptote1 = 200,
+#                                  asymptote2 = 180,
+#                                  iterations = 100,
+#                                  firstTestDay = 15,
+#                                  lastTestDay=25)
+# save(runSims_180v200_100iter, "runSims_180v200_100iter.rdata")
 
+# runSims_190v200_100iter<-runSims(asymptote1 = 200,
+#                                  asymptote2 = 190,
+#                                  iterations = 100,
+#                                  firstTestDay = 15,
+#                                  lastTestDay=25)
+# save(runSims_190v200_100iter, "runSims_190v200_100iter.rdata")
+
+runSims_200v200_100iter<-runSims(asymptote1 = 200,
+                                 asymptote2 = 200,
+                                 iterations = 100,
+                                 firstTestDay = 15,
+                                 lastTestDay=25)
+save(runSims_200v200_100iter, "runSims_200v200_100iter.rdata")
 
