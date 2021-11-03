@@ -108,6 +108,22 @@ ggsave("Fig2/exponential_linear_ribbon.png",p, width = 7.04, height=4.04, dpi=30
 ################################## Make Data Function ################################## 
 #***************************************************************************************
 
+library(brms)
+library(ggplot2)
+library(stringr)
+library(patchwork)
+library(plyr)
+library(tidyverse)
+library(viridis)
+library(viridisLite)
+
+growthSimExp <- function(x,a,b,c){
+  a_r <- a+rnorm(1,mean = 0,sd=1.5)
+  b_r <- b+rnorm(1,mean=0,sd=0.01)
+  return(a_r*exp(b_r * x))
+}
+
+
 makeData<-function(x.=x,nSamples.=nSamples, a_1.=a_1, a_2.=a_2, b_1.= b_1, b_2.=b_2){
   df<-rbind(
     do.call(rbind,
@@ -131,7 +147,7 @@ makeData<-function(x.=x,nSamples.=nSamples, a_1.=a_1, a_2.=a_2, b_1.= b_1, b_2.=
 ################################## define modelSims() for Power Law Growth Models ################################## 
 #*******************************************************************************************************************
 
-modelSimsExp<-function(iterations = 5, sigma = "none", xTime=25, nSamples = 20, a_1 = 17, a_2=16, b_1 = 0.095, b_2=0.085){
+modelSimsExp<-function(iterations = 3, sigma = "none", xTime=25, nSamples = 20, a_1 = 17, a_2=16, b_1 = 0.095, b_2=0.085){
   sigma_<-ifelse(sigma=="linear", "sigma~time+time:treatment,", 
                  ifelse(sigma=="spline", "sigma~s(time,by=treatment),",
                         ifelse(sigma=="quad", "lf(sigma~ time + timeSQ + time:treatment + timeSQ:treatment),",
@@ -258,8 +274,299 @@ modelSimsExp<-function(iterations = 5, sigma = "none", xTime=25, nSamples = 20, 
   
   patchPlot<-aPlot+bPlot
   
-  modelSimsOutput<-list(metrics_df, summary_df, patchPlot)
+  renameModText<-paste0("fit_E_",sigma,"<-fit_none")
+  eval(parse(text=renameModText))
+  outputText<-paste0("modelSimsOutput<-list(metrics_df, summary_df, patchPlot, fit_E_",sigma,")")
+  eval(parse(text=outputText))
+  
   return(modelSimsOutput)
 }
 
-modelSimsExp(iterations=2)
+# modelSims_Exp_homo<-modelSimsExp(sigma = "none")
+# save(modelSims_Exp_homo, file="modelSims_Exp_homo.rdata")
+# 2+2
+# 
+# modelSims_Exp_linear<-modelSimsExp(sigma = "linear")
+# save(modelSims_Exp_linear, file="modelSimsOutputFiles/exponentialOutputs/modelSims_Exp_linear.rdata")
+# 2+2
+
+modelSims_Exp_spline<-modelSimsExp(sigma = "spline")
+save(modelSims_Exp_spline, file="modelSimsOutputFiles/exponentialOutputs/modelSims_Exp_spline.rdata")
+2+2
+
+# modelSims_Exp_exp<-modelSimsExp(sigma = "exp")
+# save(modelSims_Exp_exp, file="modelSimsOutputFiles/exponentialOutputs/modelSims_Exp_exp.rdata")
+# 2+2
+
+# modelSims_Exp_quad<-modelSimsExp(sigma = "quad")
+# save(modelSims_Exp_quad, file="modelSimsOutputFiles/exponentialOutputs/modelSims_Exp_quad.rdata")
+# 2+2
+
+
+#*******************************************************************************************************************
+################################## Check modelSims Results ################################## 
+#*******************************************************************************************************************
+
+growthSimExp <- function(x,a,b,c){
+  a_r <- a+rnorm(1,mean = 0,sd=1.5)
+  b_r <- b+rnorm(1,mean=0,sd=0.01)
+  return(a_r*exp(b_r * x))
+}
+x <- 1:25
+set.seed(432)
+df <- rbind(
+  do.call(rbind,lapply(1:20,function(i) data.frame("sample"=paste0("sample_",i),
+                                                   "treatment"="a","time"=x,
+                                                   "y"=growthSimExp(x,17, 0.095),stringsAsFactors = F))),
+  do.call(rbind,lapply(1:20,function(i) data.frame("sample"=paste0("sample_",i),
+                                                   "treatment"="b","time"=x,
+                                                   "y"=growthSimExp(x,16, .085),stringsAsFactors = F))))
+
+print(load("modelSimsOutputs/exponentialSims/modelSims_Exp_exp.rdata"))
+
+probs <- seq(from=99, to=1, by=-2)/100
+avg_pal <- turbo(n=length(probs))
+df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))
+df_pred <- predict(modelSims_Exp_exp[[4]],df_test,probs=probs) # add fit_spline in place of fit1 for first checks.
+test <- cbind(df_test,df_pred)
+
+eExpPlot <- ggplot(test,aes(time,Estimate))+
+  facet_wrap(~treatment)+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.25)+
+  coord_cartesian(ylim=c(0,50))+
+  ylab(~~Area~(cm^2))+
+  xlab("Time")+
+  theme_light()+
+  theme(axis.ticks.length=unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="gray50",color="gray20"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+
+
+
+
+
+print(load("modelSimsOutputs/exponentialSims/modelSims_Exp_homo.rdata"))
+
+probs <- seq(from=99, to=1, by=-2)/100
+avg_pal <- turbo(n=length(probs))
+df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))
+df_pred <- predict(modelSims_Exp_homo[[4]],df_test,probs=probs) # add fit_spline in place of fit1 for first checks.
+test <- cbind(df_test,df_pred)
+
+eHomoPlot <- ggplot(test,aes(time,Estimate))+
+  facet_wrap(~treatment)+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.25)+
+  ylab(~~Area~(cm^2))+
+  xlab("Time")+
+  coord_cartesian(ylim=c(0,50))+
+  theme_light()+
+  theme(axis.ticks.length=unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="gray50",color="gray20"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+
+
+print(load("modelSimsOutputs/exponentialSims/modelSims_Exp_linear.rdata"))
+
+probs <- seq(from=99, to=1, by=-2)/100
+avg_pal <- turbo(n=length(probs))
+df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))
+df_pred <- predict(modelSims_Exp_linear[[4]],df_test,probs=probs) # add fit_spline in place of fit1 for first checks.
+test <- cbind(df_test,df_pred)
+
+eLinearPlot <- ggplot(test,aes(time,Estimate))+
+  facet_wrap(~treatment)+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.25)+
+  coord_cartesian(ylim=c(0,50))+
+  ylab(~~Area~(cm^2))+
+  xlab("Time")+
+  theme_light()+
+  theme(axis.ticks.length=unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="gray50",color="gray20"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+
+
+print(load("modelSimsOutputs/exponentialSims/modelSims_Exp_quad.rdata"))
+
+probs <- seq(from=99, to=1, by=-2)/100
+avg_pal <- turbo(n=length(probs))
+df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))%>%mutate(timeSQ=time^2)
+df_pred <- predict(modelSims_Exp_quad[[4]],df_test,probs=probs) # add fit_spline in place of fit1 for first checks.
+test <- cbind(df_test,df_pred)
+
+eQuadPlot <- ggplot(test,aes(time,Estimate))+
+  facet_wrap(~treatment)+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.25)+
+  coord_cartesian(ylim=c(0,50))+
+  ylab(~~Area~(cm^2))+
+  xlab("Time")+
+  theme_light()+
+  theme(axis.ticks.length=unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="gray50",color="gray20"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+
+
+
+
+print(load("modelSimsOutputs/exponentialSims/modelSims_Exp_spline.rdata"))
+
+probs <- seq(from=99, to=1, by=-2)/100
+avg_pal <- turbo(n=length(probs))
+df_test <- rbind(data.frame("treatment"="a",time=1:25,sample="new1"),data.frame("treatment"="b",time=1:25,sample="new2"))
+df_pred <- predict(modelSims_Exp_spline[[4]],df_test,probs=probs) # add fit_spline in place of fit1 for first checks.
+test <- cbind(df_test,df_pred)
+
+eSplinePlot <- ggplot(test,aes(time,Estimate))+
+  facet_wrap(~treatment)+
+  lapply(seq(1,49,2),function(i) geom_ribbon(aes_string(ymin=paste("Q",i,sep = ""),ymax=paste("Q",100-i,sep = "")),fill=avg_pal[i],alpha=0.5))+
+  geom_line(data=df,aes(time,y,group=interaction(treatment,sample)),color="gray20", size=0.25)+
+  coord_cartesian(ylim=c(0,50))+
+  ylab(~~Area~(cm^2))+
+  xlab("Time")+
+  theme_light()+
+  theme(axis.ticks.length=unit(0.2,"cm"))+
+  theme(strip.background=element_rect(fill="gray50",color="gray20"),
+        strip.text.x=element_text(size=14,color="white"),
+        strip.text.y=element_text(size=14,color="white"))+
+  theme(axis.title= element_text(size = 18))+
+  theme(axis.text = element_text(size = 14))+
+  theme(legend.position='top')
+
+
+compareSimModels<-function(...){
+  argnames <- sys.call()
+  arguments<-list(...)
+  i =1
+  for (dat in arguments){
+    name = as.character(rlang::enquo(dat))
+    df<-as.data.frame(dat[1])
+    
+    if(i==1){ 
+      loo_IC_Mean<-mean(df$loo_IC)
+      loo_IC_SE<-mean(df$loo_IC_se)
+      phi1_estimate_a<-mean(df$Estimate_phi1_treatmenta)
+      phi1_estimate_b<-mean(df$Estimate_phi1_treatmentb)
+      phi2_estimate_a<-mean(df$Estimate_phi2_treatmenta)
+      phi2_estimate_b<-mean(df$Estimate_phi2_treatmentb)
+      phi3_estimate_a<-mean(df$Estimate_phi3_treatmenta)
+      phi3_estimate_b<-mean(df$Estimate_phi3_treatmentb)
+      name<-unlist(lapply(argnames[-1], as.character))[i]
+      output_df<-data.frame(modelName=name, loo_IC_Mean= loo_IC_Mean, loo_IC_SE=loo_IC_SE, 
+                            phi1_estimate_a=phi1_estimate_a, phi1_estimate_b=phi1_estimate_b,
+                            phi2_estimate_a=phi2_estimate_a, phi2_estimate_b=phi2_estimate_b,
+                            phi3_estimate_a=phi3_estimate_a,phi3_estimate_b=phi3_estimate_b)
+    } else {  
+      loo_IC_Mean<-mean(df$loo_IC)
+      loo_IC_SE<-mean(df$loo_IC_se)
+      phi1_estimate_a<-mean(df$Estimate_phi1_treatmenta)
+      phi1_estimate_b<-mean(df$Estimate_phi1_treatmentb)
+      phi2_estimate_a<-mean(df$Estimate_phi2_treatmenta)
+      phi2_estimate_b<-mean(df$Estimate_phi2_treatmentb)
+      phi3_estimate_a<-mean(df$Estimate_phi3_treatmenta)
+      phi3_estimate_b<-mean(df$Estimate_phi3_treatmentb)
+      name<-unlist(lapply(argnames[-1], as.character))[i]
+      output_df_new_row<-data.frame(modelName=name, loo_IC_Mean= loo_IC_Mean, loo_IC_SE=loo_IC_SE, 
+                                    phi1_estimate_a=phi1_estimate_a, phi1_estimate_b=phi1_estimate_b,
+                                    phi2_estimate_a=phi2_estimate_a, phi2_estimate_b=phi2_estimate_b,
+                                    phi3_estimate_a=phi3_estimate_a,phi3_estimate_b=phi3_estimate_b)
+      output_df<-rbind(output_df, output_df_new_row)
+    }
+    i=i+1
+  }
+  output_df$modelName <- with(output_df, reorder(modelName, -loo_IC_Mean))
+  
+  looPlot<-ggplot(output_df)+
+    geom_col(aes(x=modelName, y=loo_IC_Mean, fill=modelName))+
+    geom_segment(aes(x=modelName, xend=modelName, y=loo_IC_Mean, yend = loo_IC_Mean+loo_IC_SE), size = 1.5)+
+    geom_segment(aes(x=modelName, xend=modelName, y=loo_IC_Mean, yend = loo_IC_Mean-loo_IC_SE), size = 1.5)+
+    geom_text(aes(x=modelName, y=loo_IC_Mean*1.1, label = paste0(round(loo_IC_Mean, digits=0))))+
+    labs(title = "LOO IC", x="", y="", fill="Model")+
+    scale_fill_viridis(discrete = T)+
+    theme_minimal() +
+    theme(axis.line.y.left = element_line(),
+          axis.line.x.bottom = element_line(),
+          axis.text.x.bottom = element_blank())
+  
+  output_df_lean<-dplyr::select(output_df, modelName, loo_IC_Mean, loo_IC_SE=loo_IC_SE)%>%arrange(desc(loo_IC_Mean))
+  outputList<-list(output_df_lean, output_df, looPlot)
+  return(outputList)
+}
+
+`Homoskedastic Model`<-modelSims_Exp_homo
+`Linear Heteroskedasticity`<-modelSims_Exp_linear
+`Quadratic Heteroskedasticity`<-modelSims_Exp_quad
+`Spline Heteroskedasticity`<-modelSims_Exp_spline
+`Exponential Heteroskedasticity`<-modelSims_Exp_exp
+
+comparisons<-compareSimModels(`Homoskedastic Model`, `Linear Heteroskedasticity`, `Quadratic Heteroskedasticity`, `Spline Heteroskedasticity`,`Exponential Heteroskedasticity`)
+
+looICPlot<-comparisons[3][[1]]
+
+ggsave("LOO_IC_exponential_hetSkeds.png",looICPlot, width = 7.04, height=4.04, dpi=300, bg = "#ffffff")
+
+
+pSpline_titled<-eSplinePlot+labs(title="Splines")+coord_cartesian(ylim=c(0,250))+
+  theme(axis.text = element_text(size = 10),axis.title= element_text(size = 8),
+        title = element_text(size=10))
+pLinear_titled<-eLinearPlot+labs(title="Linear")+coord_cartesian(ylim=c(0,250))+ylab("")+xlab("")+theme(axis.text = element_text(size = 8),
+                                                                                                       axis.title= element_text(size = 8),
+                                                                                                       title = element_text(size=10))
+pExp_titled<-eExpPlot+labs(title="Exponential")+coord_cartesian(ylim=c(0,250))+ylab("")+xlab("")+theme(axis.text = element_text(size = 8),
+                                                                                                      axis.title= element_text(size = 8),
+                                                                                                      title = element_text(size=10))
+pQuad_titled<-eQuadPlot+labs(title="Quadratic")+coord_cartesian(ylim=c(0,250))+ylab("")+theme(axis.text = element_text(size = 10),
+                                                                                             axis.title= element_text(size = 8),
+                                                                                             title = element_text(size=10))
+pNone_titled<-eHomoPlot+labs(title="Homoskedastic")+coord_cartesian(ylim=c(0,250))+xlab("")+theme(axis.text = element_text(size = 8),
+                                                                                                 axis.title= element_text(size = 8),
+                                                                                                 title = element_text(size=10))
+
+#looICPlot_to_add<-
+looDf<-comparisons[[2]]%>%
+  mutate(modelName = str_remove_all(modelName, "Model"))%>%
+  mutate(modelName = str_remove_all(modelName, "Heteroskedasticity"))
+looDf$modelName <- with(looDf, reorder(modelName, -loo_IC_Mean))
+
+looICPlot_to_add<-looDf%>%
+  ggplot()+
+  geom_col(aes(x=modelName, y=loo_IC_Mean, fill=modelName))+
+  geom_segment(aes(x=modelName, xend=modelName, y=loo_IC_Mean, yend = loo_IC_Mean+loo_IC_SE), size = 1.5)+
+  geom_segment(aes(x=modelName, xend=modelName, y=loo_IC_Mean, yend = loo_IC_Mean-loo_IC_SE), size = 1.5)+
+  geom_text(aes(x=modelName, y=loo_IC_Mean*1.08, label = paste0(round(loo_IC_Mean, digits=0))), size=3)+
+  labs(title = "LOO IC", x="", y="", fill="Model")+
+  scale_fill_viridis(discrete = T)+
+  theme_minimal() +
+  theme(axis.line.y.left = element_line(),
+        axis.line.x.bottom = element_line(),
+        axis.text.x.bottom = element_blank(),
+        axis.text.y = element_blank(),
+        title = element_text(size=10),
+        legend.title = element_text(size=6.5),
+        legend.text = element_text(size=6.5))
+
+patchesOhoolihan<- (pNone_titled | pLinear_titled | pExp_titled)/(pSpline_titled | pQuad_titled | looICPlot_to_add)
+
+#lol re run? took 12 days previously...
+ggsave("fig2/exponentialFigure2.png", patchesOhoolihan, dpi=300, width = 10, height = 5)
+
+
+

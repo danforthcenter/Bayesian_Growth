@@ -1,4 +1,3 @@
-#issue 3
 library(brms)
 library(ggplot2)
 library(stringr)
@@ -269,7 +268,9 @@ uupap <- function(fit,initial_priors,newdata){
   post <- data.frame(posterior_summary(fit),stringsAsFactors = F)
   post$n_sd <- post$Est.Error*1.96
   new_priors <- initial_priors
-  new_priors$prior <- apply(prior1,MARGIN = 1, function(i) paste0("normal(",post[gsub("__","",paste0(i[c(2,7,3)],collapse = "_")),"Estimate"],",",as.numeric(post[gsub("__","",paste0(i[c(2,7,3)],collapse = "_")),"Est.Error"])*1.96,")"))
+  new_priors$prior <- apply(prior1,MARGIN = 1, 
+                            function(i) paste0("normal(",post[gsub("__","",paste0(i[c(2,7,3)],collapse = "_")),
+                                                              "Estimate"],",",as.numeric(post[gsub("__","",paste0(i[c(2,7,3)],collapse = "_")),"Est.Error"])*1.96,")"))
   new_fit <- update(fit,newdata = newdata,prior=new_priors, cores=4)
   return(new_fit)
 }
